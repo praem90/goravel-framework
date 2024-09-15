@@ -2,7 +2,19 @@ package auth
 
 import (
 	"time"
+
+	"github.com/goravel/framework/contracts/config"
+	"github.com/goravel/framework/contracts/http"
 )
+
+type Factory interface {
+    GetDefaultDriver() Auth
+    SetDefaultDriver(string) Factory
+    Extend(string, AuthGuardFunc) Factory
+    Guard(string) Auth
+}
+
+type AuthGuardFunc func(string, config.Config, http.Context) Auth
 
 type Auth interface {
 	// Guard attempts to get the guard against the local cache.
