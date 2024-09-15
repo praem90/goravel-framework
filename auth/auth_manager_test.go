@@ -39,9 +39,9 @@ func (s *AuthManagerTestSuite) TestValidExtend() {
 	s.config.On("GetString", "auth.guards.test.driver").Once().Return("jwt")
 	s.app.On("MakeConfig").Return(s.config)
 
-	testGuard := s.manager.Guard("test")
+	jwtGuard := s.manager.Guard("test")
 
-	_, ok := testGuard.(contractsauth.Auth)
+	_, ok := jwtGuard.(contractsauth.Auth)
 
 	s.Assert().True(true, ok)
 }
