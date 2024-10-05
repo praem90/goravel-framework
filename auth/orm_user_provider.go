@@ -16,8 +16,18 @@ type OrmUserProvider struct {
 }
 
 // RetriveByCredentials implements auth.UserProvider.
-func (o OrmUserProvider) RetriveByCredentials(credentials map[string]any) any {
-	panic("unimplemented")
+func (o OrmUserProvider) RetriveByCredentials(credentials map[string]any) (any, error) {
+    query := o.orm.Query()
+
+    for key, value := range credentials {
+        query.Where(key, value)
+    }
+
+    if err := query.FirstOrFail(o.model); err != nil {
+        return nil, err
+    }
+
+    return o.model, nil
 }
 
 // RetriveById implements auth.UserProvider.
