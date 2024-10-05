@@ -32,7 +32,10 @@ func (f AuthManager) GetDefaultDriver() contractsauth.Guard {
 // SetDefaultDriver implements auth.Factory.
 func (f AuthManager) SetDefaultDriver(name string) contractsauth.Factory {
 	config := f.app.MakeConfig()
-	config.Add("auth.defaults.guard", name)
+
+    if config != nil {
+        config.Add("auth.defaults.guard", name)
+    }
 
 	return f
 }
@@ -46,7 +49,12 @@ func (f AuthManager) Extend(name string, callback contractsauth.AuthGuardFunc) c
 
 // Guard implements auth.Factory.
 func (f AuthManager) Guard(name string) contractsauth.Guard {
-	driver := f.app.MakeConfig().GetString(fmt.Sprintf("auth.guards.%s.driver", name))
+	config := f.app.MakeConfig()
+    if config == nil {
+        return nil
+    }
+
+	driver := config.GetString(fmt.Sprintf("auth.guards.%s.driver", name))
 
 	if guard, exists := f.guards[driver]; exists {
         return guard

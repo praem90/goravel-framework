@@ -14,7 +14,7 @@ type Factory interface {
     Guard(string) Guard
 }
 
-type AuthGuardFunc func(string, config.Config, http.Context) Guard
+type AuthGuardFunc func(string, config.Config, http.Context, UserProvider) Guard
 
 type Auth interface {
 	// Guard attempts to get the guard against the local cache.
