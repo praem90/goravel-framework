@@ -19,6 +19,11 @@ type AuthManager struct {
 // GetDefaultDriver implements auth.Factory.
 func (f AuthManager) GetDefaultDriver() contractsauth.Guard {
 	config := f.app.MakeConfig()
+
+    if config == nil {
+        return nil
+    }
+
 	name := config.GetString("auth.defaults.guard")
 
 	return f.Guard(name)

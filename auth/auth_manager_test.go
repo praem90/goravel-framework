@@ -41,9 +41,7 @@ func (s *AuthManagerTestSuite) TestValidExtend() {
 
 	jwtGuard := s.manager.Guard("test")
 
-	_, ok := jwtGuard.(contractsauth.Guard)
-
-	s.Assert().True(true, ok)
+    s.Assert().NotNil(jwtGuard)
 }
 
 func (s *AuthManagerTestSuite) TestInValidExtend() {
