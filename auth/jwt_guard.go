@@ -47,7 +47,13 @@ func (j JwtGuard) Id() string {
 
 // User implements auth.Guard.
 func (j JwtGuard) User() *any {
-    token := j.ctx.Request().Header("Authorization", "")
+    request := j.ctx.Request()
+
+    if request == nil {
+        return nil
+    }
+
+    token := request.Header("Authorization", "")
 
     if token == "" {
         return nil

@@ -66,7 +66,6 @@ func (f AuthManager) Guard(name string) contractsauth.Guard {
     }
 
 	if guardFn, exists := f.customGuards[driver]; exists {
-		config := f.app.MakeConfig()
         provider := config.GetString(fmt.Sprintf("auth.guards.%s.provider", name))
 		f.guards[name] = guardFn(name, config, f.ctx, f.createUserProvider(provider))
 
