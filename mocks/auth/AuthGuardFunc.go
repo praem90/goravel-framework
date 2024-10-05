@@ -24,17 +24,17 @@ func (_m *AuthGuardFunc) EXPECT() *AuthGuardFunc_Expecter {
 	return &AuthGuardFunc_Expecter{mock: &_m.Mock}
 }
 
-// Execute provides a mock function with given fields: _a0, _a1, _a2
-func (_m *AuthGuardFunc) Execute(_a0 string, _a1 config.Config, _a2 http.Context) auth.Guard {
-	ret := _m.Called(_a0, _a1, _a2)
+// Execute provides a mock function with given fields: _a0, _a1, _a2, _a3
+func (_m *AuthGuardFunc) Execute(_a0 string, _a1 config.Config, _a2 http.Context, _a3 auth.UserProvider) auth.Guard {
+	ret := _m.Called(_a0, _a1, _a2, _a3)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Execute")
 	}
 
 	var r0 auth.Guard
-	if rf, ok := ret.Get(0).(func(string, config.Config, http.Context) auth.Guard); ok {
-		r0 = rf(_a0, _a1, _a2)
+	if rf, ok := ret.Get(0).(func(string, config.Config, http.Context, auth.UserProvider) auth.Guard); ok {
+		r0 = rf(_a0, _a1, _a2, _a3)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).(auth.Guard)
@@ -53,13 +53,14 @@ type AuthGuardFunc_Execute_Call struct {
 //   - _a0 string
 //   - _a1 config.Config
 //   - _a2 http.Context
-func (_e *AuthGuardFunc_Expecter) Execute(_a0 interface{}, _a1 interface{}, _a2 interface{}) *AuthGuardFunc_Execute_Call {
-	return &AuthGuardFunc_Execute_Call{Call: _e.mock.On("Execute", _a0, _a1, _a2)}
+//   - _a3 auth.UserProvider
+func (_e *AuthGuardFunc_Expecter) Execute(_a0 interface{}, _a1 interface{}, _a2 interface{}, _a3 interface{}) *AuthGuardFunc_Execute_Call {
+	return &AuthGuardFunc_Execute_Call{Call: _e.mock.On("Execute", _a0, _a1, _a2, _a3)}
 }
 
-func (_c *AuthGuardFunc_Execute_Call) Run(run func(_a0 string, _a1 config.Config, _a2 http.Context)) *AuthGuardFunc_Execute_Call {
+func (_c *AuthGuardFunc_Execute_Call) Run(run func(_a0 string, _a1 config.Config, _a2 http.Context, _a3 auth.UserProvider)) *AuthGuardFunc_Execute_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(string), args[1].(config.Config), args[2].(http.Context))
+		run(args[0].(string), args[1].(config.Config), args[2].(http.Context), args[3].(auth.UserProvider))
 	})
 	return _c
 }
@@ -69,7 +70,7 @@ func (_c *AuthGuardFunc_Execute_Call) Return(_a0 auth.Guard) *AuthGuardFunc_Exec
 	return _c
 }
 
-func (_c *AuthGuardFunc_Execute_Call) RunAndReturn(run func(string, config.Config, http.Context) auth.Guard) *AuthGuardFunc_Execute_Call {
+func (_c *AuthGuardFunc_Execute_Call) RunAndReturn(run func(string, config.Config, http.Context, auth.UserProvider) auth.Guard) *AuthGuardFunc_Execute_Call {
 	_c.Call.Return(run)
 	return _c
 }
