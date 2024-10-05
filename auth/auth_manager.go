@@ -11,7 +11,8 @@ import (
 type AuthManager struct {
 	app    foundation.Application
 	ctx    http.Context
-	guards map[string]contractsauth.AuthGuardFunc
+	customGuards map[string]contractsauth.AuthGuardFunc
+	guards map[string]contractsauth.Guard
 }
 
 
@@ -33,7 +34,7 @@ func (f AuthManager) SetDefaultDriver(name string) contractsauth.Factory {
 
 // Extend implements auth.Factory.
 func (f AuthManager) Extend(name string, callback contractsauth.AuthGuardFunc) contractsauth.Factory {
-	f.guards[name] = callback
+	f.customGuards[name] = callback
 
 	return f
 }
@@ -42,9 +43,15 @@ func (f AuthManager) Extend(name string, callback contractsauth.AuthGuardFunc) c
 func (f AuthManager) Guard(name string) contractsauth.Guard {
 	driver := f.app.MakeConfig().GetString(fmt.Sprintf("auth.guards.%s.driver", name))
 
-	if guardFn, exists := f.guards[driver]; exists {
+	if guard, exists := f.guards[driver]; exists {
+        return guard
+    }
+
+	if guardFn, exists := f.customGuards[driver]; exists {
 		config := f.app.MakeConfig()
-		return guardFn(name, config, f.ctx)
+		f.guards[name] = guardFn(name, config, f.ctx)
+
+        return f.guards[name]
 	}
 
 	return nil
@@ -54,6 +61,7 @@ func NewAuthManager(app foundation.Application, ctx http.Context) contractsauth.
 	return AuthManager{
 		app:    app,
 		ctx:    ctx,
-		guards: map[string]contractsauth.AuthGuardFunc{},
+		guards: map[string]contractsauth.Guard{},
+		customGuards: map[string]contractsauth.AuthGuardFunc{},
 	}
 }

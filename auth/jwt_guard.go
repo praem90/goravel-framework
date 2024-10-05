@@ -44,6 +44,6 @@ func (j JwtGuard) Validate(map[string]string) bool {
 	panic("unimplemented")
 }
 
-func NewJwtGuard(string, config.Config, http.Context) contractsauth.Guard {
+func NewJwtGuard(name string, config config.Config, ctx http.Context) contractsauth.Guard {
 	return JwtGuard{}
 }
