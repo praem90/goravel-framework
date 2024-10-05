@@ -36,6 +36,7 @@ func (s *AuthManagerTestSuite) SetupTest() {
 
 func (s *AuthManagerTestSuite) TestValidExtend() {
 	s.manager.Extend("jwt", NewJwtGuard)
+	s.config.On("GetString", "auth.guards.test.provider").Once().Return("orm")
 	s.config.On("GetString", "auth.guards.test.driver").Once().Return("jwt")
 	s.app.On("MakeConfig").Return(s.config)
 
@@ -45,6 +46,7 @@ func (s *AuthManagerTestSuite) TestValidExtend() {
 }
 
 func (s *AuthManagerTestSuite) TestInValidExtend() {
+	s.config.On("GetString", "auth.guards.test.provider").Once().Return("orm")
 	s.config.On("GetString", "auth.guards.test.driver").Once().Return("invalid")
 	s.app.On("MakeConfig").Return(s.config)
 

@@ -74,22 +74,27 @@ func (j JwtGuard) User() *any {
 		return nil
 	}
 
-    j.user = j.provider.RetriveById(claims.Key)
+    j.user, err = j.provider.RetriveById(claims.Key)
+
+    if err != nil {
+        return nil
+    }
 
     return &j.user
 }
 
 // Validate implements auth.Guard.
 func (j JwtGuard) Validate(map[string]string) bool {
-    staticGuard := NewJwtGuard(j.name, j.config, j.ctx)
+    staticGuard := NewJwtGuard(j.name, j.config, j.ctx, j.provider)
 
     return staticGuard.User() != nil
 }
 
-func NewJwtGuard(name string, config config.Config, ctx http.Context) contractsauth.Guard {
+func NewJwtGuard(name string, config config.Config, ctx http.Context, provider contractsauth.UserProvider) contractsauth.Guard {
 	return JwtGuard{
         name: name,
         config: config,
         ctx: ctx,
+        provider: provider,
     }
 }

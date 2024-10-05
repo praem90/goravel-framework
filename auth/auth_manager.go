@@ -67,12 +67,17 @@ func (f AuthManager) Guard(name string) contractsauth.Guard {
 
 	if guardFn, exists := f.customGuards[driver]; exists {
 		config := f.app.MakeConfig()
-		f.guards[name] = guardFn(name, config, f.ctx)
+        provider := config.GetString(fmt.Sprintf("auth.guards.%s.provider", name))
+		f.guards[name] = guardFn(name, config, f.ctx, f.createUserProvider(provider))
 
         return f.guards[name]
 	}
 
 	return nil
+}
+
+func (f AuthManager) createUserProvider(name string) contractsauth.UserProvider {
+    return nil
 }
 
 func NewAuthManager(app foundation.Application, ctx http.Context) contractsauth.Factory {
