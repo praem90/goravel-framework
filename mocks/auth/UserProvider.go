@@ -17,41 +17,6 @@ func (_m *UserProvider) EXPECT() *UserProvider_Expecter {
 	return &UserProvider_Expecter{mock: &_m.Mock}
 }
 
-// RehashPasswordIfNeeded provides a mock function with given fields: _a0, _a1, _a2
-func (_m *UserProvider) RehashPasswordIfNeeded(_a0 interface{}, _a1 map[string]interface{}, _a2 bool) {
-	_m.Called(_a0, _a1, _a2)
-}
-
-// UserProvider_RehashPasswordIfNeeded_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RehashPasswordIfNeeded'
-type UserProvider_RehashPasswordIfNeeded_Call struct {
-	*mock.Call
-}
-
-// RehashPasswordIfNeeded is a helper method to define mock.On call
-//   - _a0 interface{}
-//   - _a1 map[string]interface{}
-//   - _a2 bool
-func (_e *UserProvider_Expecter) RehashPasswordIfNeeded(_a0 interface{}, _a1 interface{}, _a2 interface{}) *UserProvider_RehashPasswordIfNeeded_Call {
-	return &UserProvider_RehashPasswordIfNeeded_Call{Call: _e.mock.On("RehashPasswordIfNeeded", _a0, _a1, _a2)}
-}
-
-func (_c *UserProvider_RehashPasswordIfNeeded_Call) Run(run func(_a0 interface{}, _a1 map[string]interface{}, _a2 bool)) *UserProvider_RehashPasswordIfNeeded_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(interface{}), args[1].(map[string]interface{}), args[2].(bool))
-	})
-	return _c
-}
-
-func (_c *UserProvider_RehashPasswordIfNeeded_Call) Return() *UserProvider_RehashPasswordIfNeeded_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *UserProvider_RehashPasswordIfNeeded_Call) RunAndReturn(run func(interface{}, map[string]interface{}, bool)) *UserProvider_RehashPasswordIfNeeded_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // RetriveByCredentials provides a mock function with given fields: _a0
 func (_m *UserProvider) RetriveByCredentials(_a0 map[string]interface{}) interface{} {
 	ret := _m.Called(_a0)
@@ -101,7 +66,7 @@ func (_c *UserProvider_RetriveByCredentials_Call) RunAndReturn(run func(map[stri
 }
 
 // RetriveById provides a mock function with given fields: _a0
-func (_m *UserProvider) RetriveById(_a0 interface{}) interface{} {
+func (_m *UserProvider) RetriveById(_a0 interface{}) (interface{}, error) {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
@@ -109,6 +74,10 @@ func (_m *UserProvider) RetriveById(_a0 interface{}) interface{} {
 	}
 
 	var r0 interface{}
+	var r1 error
+	if rf, ok := ret.Get(0).(func(interface{}) (interface{}, error)); ok {
+		return rf(_a0)
+	}
 	if rf, ok := ret.Get(0).(func(interface{}) interface{}); ok {
 		r0 = rf(_a0)
 	} else {
@@ -117,7 +86,13 @@ func (_m *UserProvider) RetriveById(_a0 interface{}) interface{} {
 		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(interface{}) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // UserProvider_RetriveById_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RetriveById'
@@ -138,140 +113,12 @@ func (_c *UserProvider_RetriveById_Call) Run(run func(_a0 interface{})) *UserPro
 	return _c
 }
 
-func (_c *UserProvider_RetriveById_Call) Return(_a0 interface{}) *UserProvider_RetriveById_Call {
-	_c.Call.Return(_a0)
+func (_c *UserProvider_RetriveById_Call) Return(_a0 interface{}, _a1 error) *UserProvider_RetriveById_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *UserProvider_RetriveById_Call) RunAndReturn(run func(interface{}) interface{}) *UserProvider_RetriveById_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// RetriveByToken provides a mock function with given fields: _a0
-func (_m *UserProvider) RetriveByToken(_a0 interface{}) interface{} {
-	ret := _m.Called(_a0)
-
-	if len(ret) == 0 {
-		panic("no return value specified for RetriveByToken")
-	}
-
-	var r0 interface{}
-	if rf, ok := ret.Get(0).(func(interface{}) interface{}); ok {
-		r0 = rf(_a0)
-	} else {
-		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(interface{})
-		}
-	}
-
-	return r0
-}
-
-// UserProvider_RetriveByToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RetriveByToken'
-type UserProvider_RetriveByToken_Call struct {
-	*mock.Call
-}
-
-// RetriveByToken is a helper method to define mock.On call
-//   - _a0 interface{}
-func (_e *UserProvider_Expecter) RetriveByToken(_a0 interface{}) *UserProvider_RetriveByToken_Call {
-	return &UserProvider_RetriveByToken_Call{Call: _e.mock.On("RetriveByToken", _a0)}
-}
-
-func (_c *UserProvider_RetriveByToken_Call) Run(run func(_a0 interface{})) *UserProvider_RetriveByToken_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(interface{}))
-	})
-	return _c
-}
-
-func (_c *UserProvider_RetriveByToken_Call) Return(_a0 interface{}) *UserProvider_RetriveByToken_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *UserProvider_RetriveByToken_Call) RunAndReturn(run func(interface{}) interface{}) *UserProvider_RetriveByToken_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// UpdateRememberToken provides a mock function with given fields: _a0
-func (_m *UserProvider) UpdateRememberToken(_a0 interface{}) {
-	_m.Called(_a0)
-}
-
-// UserProvider_UpdateRememberToken_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'UpdateRememberToken'
-type UserProvider_UpdateRememberToken_Call struct {
-	*mock.Call
-}
-
-// UpdateRememberToken is a helper method to define mock.On call
-//   - _a0 interface{}
-func (_e *UserProvider_Expecter) UpdateRememberToken(_a0 interface{}) *UserProvider_UpdateRememberToken_Call {
-	return &UserProvider_UpdateRememberToken_Call{Call: _e.mock.On("UpdateRememberToken", _a0)}
-}
-
-func (_c *UserProvider_UpdateRememberToken_Call) Run(run func(_a0 interface{})) *UserProvider_UpdateRememberToken_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(interface{}))
-	})
-	return _c
-}
-
-func (_c *UserProvider_UpdateRememberToken_Call) Return() *UserProvider_UpdateRememberToken_Call {
-	_c.Call.Return()
-	return _c
-}
-
-func (_c *UserProvider_UpdateRememberToken_Call) RunAndReturn(run func(interface{})) *UserProvider_UpdateRememberToken_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
-// ValidateCredentials provides a mock function with given fields: _a0, _a1
-func (_m *UserProvider) ValidateCredentials(_a0 interface{}, _a1 map[string]interface{}) bool {
-	ret := _m.Called(_a0, _a1)
-
-	if len(ret) == 0 {
-		panic("no return value specified for ValidateCredentials")
-	}
-
-	var r0 bool
-	if rf, ok := ret.Get(0).(func(interface{}, map[string]interface{}) bool); ok {
-		r0 = rf(_a0, _a1)
-	} else {
-		r0 = ret.Get(0).(bool)
-	}
-
-	return r0
-}
-
-// UserProvider_ValidateCredentials_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ValidateCredentials'
-type UserProvider_ValidateCredentials_Call struct {
-	*mock.Call
-}
-
-// ValidateCredentials is a helper method to define mock.On call
-//   - _a0 interface{}
-//   - _a1 map[string]interface{}
-func (_e *UserProvider_Expecter) ValidateCredentials(_a0 interface{}, _a1 interface{}) *UserProvider_ValidateCredentials_Call {
-	return &UserProvider_ValidateCredentials_Call{Call: _e.mock.On("ValidateCredentials", _a0, _a1)}
-}
-
-func (_c *UserProvider_ValidateCredentials_Call) Run(run func(_a0 interface{}, _a1 map[string]interface{})) *UserProvider_ValidateCredentials_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(interface{}), args[1].(map[string]interface{}))
-	})
-	return _c
-}
-
-func (_c *UserProvider_ValidateCredentials_Call) Return(_a0 bool) *UserProvider_ValidateCredentials_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *UserProvider_ValidateCredentials_Call) RunAndReturn(run func(interface{}, map[string]interface{}) bool) *UserProvider_ValidateCredentials_Call {
+func (_c *UserProvider_RetriveById_Call) RunAndReturn(run func(interface{}) (interface{}, error)) *UserProvider_RetriveById_Call {
 	_c.Call.Return(run)
 	return _c
 }
