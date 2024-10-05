@@ -70,19 +70,19 @@ func (_c *Factory_Extend_Call) RunAndReturn(run func(string, auth.AuthGuardFunc)
 }
 
 // GetDefaultDriver provides a mock function with given fields:
-func (_m *Factory) GetDefaultDriver() auth.Auth {
+func (_m *Factory) GetDefaultDriver() auth.Guard {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetDefaultDriver")
 	}
 
-	var r0 auth.Auth
-	if rf, ok := ret.Get(0).(func() auth.Auth); ok {
+	var r0 auth.Guard
+	if rf, ok := ret.Get(0).(func() auth.Guard); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(auth.Auth)
+			r0 = ret.Get(0).(auth.Guard)
 		}
 	}
 
@@ -106,30 +106,30 @@ func (_c *Factory_GetDefaultDriver_Call) Run(run func()) *Factory_GetDefaultDriv
 	return _c
 }
 
-func (_c *Factory_GetDefaultDriver_Call) Return(_a0 auth.Auth) *Factory_GetDefaultDriver_Call {
+func (_c *Factory_GetDefaultDriver_Call) Return(_a0 auth.Guard) *Factory_GetDefaultDriver_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Factory_GetDefaultDriver_Call) RunAndReturn(run func() auth.Auth) *Factory_GetDefaultDriver_Call {
+func (_c *Factory_GetDefaultDriver_Call) RunAndReturn(run func() auth.Guard) *Factory_GetDefaultDriver_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
 // Guard provides a mock function with given fields: _a0
-func (_m *Factory) Guard(_a0 string) auth.Auth {
+func (_m *Factory) Guard(_a0 string) auth.Guard {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Guard")
 	}
 
-	var r0 auth.Auth
-	if rf, ok := ret.Get(0).(func(string) auth.Auth); ok {
+	var r0 auth.Guard
+	if rf, ok := ret.Get(0).(func(string) auth.Guard); ok {
 		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(auth.Auth)
+			r0 = ret.Get(0).(auth.Guard)
 		}
 	}
 
@@ -154,12 +154,12 @@ func (_c *Factory_Guard_Call) Run(run func(_a0 string)) *Factory_Guard_Call {
 	return _c
 }
 
-func (_c *Factory_Guard_Call) Return(_a0 auth.Auth) *Factory_Guard_Call {
+func (_c *Factory_Guard_Call) Return(_a0 auth.Guard) *Factory_Guard_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Factory_Guard_Call) RunAndReturn(run func(string) auth.Auth) *Factory_Guard_Call {
+func (_c *Factory_Guard_Call) RunAndReturn(run func(string) auth.Guard) *Factory_Guard_Call {
 	_c.Call.Return(run)
 	return _c
 }

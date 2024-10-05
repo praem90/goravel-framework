@@ -25,19 +25,19 @@ func (_m *AuthGuardFunc) EXPECT() *AuthGuardFunc_Expecter {
 }
 
 // Execute provides a mock function with given fields: _a0, _a1, _a2
-func (_m *AuthGuardFunc) Execute(_a0 string, _a1 config.Config, _a2 http.Context) auth.Auth {
+func (_m *AuthGuardFunc) Execute(_a0 string, _a1 config.Config, _a2 http.Context) auth.Guard {
 	ret := _m.Called(_a0, _a1, _a2)
 
 	if len(ret) == 0 {
 		panic("no return value specified for Execute")
 	}
 
-	var r0 auth.Auth
-	if rf, ok := ret.Get(0).(func(string, config.Config, http.Context) auth.Auth); ok {
+	var r0 auth.Guard
+	if rf, ok := ret.Get(0).(func(string, config.Config, http.Context) auth.Guard); ok {
 		r0 = rf(_a0, _a1, _a2)
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(auth.Auth)
+			r0 = ret.Get(0).(auth.Guard)
 		}
 	}
 
@@ -64,12 +64,12 @@ func (_c *AuthGuardFunc_Execute_Call) Run(run func(_a0 string, _a1 config.Config
 	return _c
 }
 
-func (_c *AuthGuardFunc_Execute_Call) Return(_a0 auth.Auth) *AuthGuardFunc_Execute_Call {
+func (_c *AuthGuardFunc_Execute_Call) Return(_a0 auth.Guard) *AuthGuardFunc_Execute_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *AuthGuardFunc_Execute_Call) RunAndReturn(run func(string, config.Config, http.Context) auth.Auth) *AuthGuardFunc_Execute_Call {
+func (_c *AuthGuardFunc_Execute_Call) RunAndReturn(run func(string, config.Config, http.Context) auth.Guard) *AuthGuardFunc_Execute_Call {
 	_c.Call.Return(run)
 	return _c
 }
