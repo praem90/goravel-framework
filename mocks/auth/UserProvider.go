@@ -18,7 +18,7 @@ func (_m *UserProvider) EXPECT() *UserProvider_Expecter {
 }
 
 // RetriveByCredentials provides a mock function with given fields: _a0
-func (_m *UserProvider) RetriveByCredentials(_a0 map[string]interface{}) interface{} {
+func (_m *UserProvider) RetriveByCredentials(_a0 map[string]interface{}) (interface{}, error) {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
@@ -26,6 +26,10 @@ func (_m *UserProvider) RetriveByCredentials(_a0 map[string]interface{}) interfa
 	}
 
 	var r0 interface{}
+	var r1 error
+	if rf, ok := ret.Get(0).(func(map[string]interface{}) (interface{}, error)); ok {
+		return rf(_a0)
+	}
 	if rf, ok := ret.Get(0).(func(map[string]interface{}) interface{}); ok {
 		r0 = rf(_a0)
 	} else {
@@ -34,7 +38,13 @@ func (_m *UserProvider) RetriveByCredentials(_a0 map[string]interface{}) interfa
 		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(map[string]interface{}) error); ok {
+		r1 = rf(_a0)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // UserProvider_RetriveByCredentials_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'RetriveByCredentials'
@@ -55,12 +65,12 @@ func (_c *UserProvider_RetriveByCredentials_Call) Run(run func(_a0 map[string]in
 	return _c
 }
 
-func (_c *UserProvider_RetriveByCredentials_Call) Return(_a0 interface{}) *UserProvider_RetriveByCredentials_Call {
-	_c.Call.Return(_a0)
+func (_c *UserProvider_RetriveByCredentials_Call) Return(_a0 interface{}, _a1 error) *UserProvider_RetriveByCredentials_Call {
+	_c.Call.Return(_a0, _a1)
 	return _c
 }
 
-func (_c *UserProvider_RetriveByCredentials_Call) RunAndReturn(run func(map[string]interface{}) interface{}) *UserProvider_RetriveByCredentials_Call {
+func (_c *UserProvider_RetriveByCredentials_Call) RunAndReturn(run func(map[string]interface{}) (interface{}, error)) *UserProvider_RetriveByCredentials_Call {
 	_c.Call.Return(run)
 	return _c
 }
