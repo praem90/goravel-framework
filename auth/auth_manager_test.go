@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	contractsauth "github.com/goravel/framework/contracts/auth"
-	"github.com/goravel/framework/contracts/config"
 	"github.com/goravel/framework/contracts/http"
 	configmock "github.com/goravel/framework/mocks/config"
 	foundationMock "github.com/goravel/framework/mocks/foundation"
@@ -53,51 +52,4 @@ func (s *AuthManagerTestSuite) TestInValidExtend() {
 	testGuard := s.manager.Guard("test")
 
 	s.Assert().Nil(testGuard)
-}
-
-type JwtGuard struct {
-}
-
-// Id implements auth.Auth.
-func (j JwtGuard) Id() (string, error) {
-	panic("unimplemented")
-}
-
-// Guard implements auth.Auth.
-func (j JwtGuard) Guard(name string) contractsauth.Auth {
-	panic("unimplemented")
-}
-
-// Login implements auth.Auth.
-func (j JwtGuard) Login(user any) (token string, err error) {
-	panic("unimplemented")
-}
-
-// LoginUsingID implements auth.Auth.
-func (j JwtGuard) LoginUsingID(id any) (token string, err error) {
-	panic("unimplemented")
-}
-
-// Logout implements auth.Auth.
-func (j JwtGuard) Logout() error {
-	panic("unimplemented")
-}
-
-// Parse implements auth.Auth.
-func (j JwtGuard) Parse(token string) (*contractsauth.Payload, error) {
-	panic("unimplemented")
-}
-
-// Refresh implements auth.Auth.
-func (j JwtGuard) Refresh() (token string, err error) {
-	panic("unimplemented")
-}
-
-// User implements auth.Auth.
-func (j JwtGuard) User(user any) error {
-	panic("unimplemented")
-}
-
-func NewJwtGuard(string, config.Config, http.Context) contractsauth.Auth {
-	return &JwtGuard{}
 }

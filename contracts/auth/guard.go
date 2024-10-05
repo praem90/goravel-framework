@@ -8,5 +8,5 @@ type Guard interface {
     Id() string;
     Validate(map[string]string) bool;
     HasUser() bool;
-    setUser(any) *Guard;
+    SetUser(any) Guard;
 }

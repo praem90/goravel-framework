@@ -8,13 +8,13 @@ import (
 )
 
 type Factory interface {
-    GetDefaultDriver() Auth
+    GetDefaultDriver() Guard
     SetDefaultDriver(string) Factory
     Extend(string, AuthGuardFunc) Factory
-    Guard(string) Auth
+    Guard(string) Guard
 }
 
-type AuthGuardFunc func(string, config.Config, http.Context) Auth
+type AuthGuardFunc func(string, config.Config, http.Context) Guard
 
 type Auth interface {
 	// Guard attempts to get the guard against the local cache.
