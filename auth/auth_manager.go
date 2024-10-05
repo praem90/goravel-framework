@@ -4,15 +4,20 @@ import (
 	"fmt"
 
 	contractsauth "github.com/goravel/framework/contracts/auth"
+	"github.com/goravel/framework/contracts/config"
 	"github.com/goravel/framework/contracts/foundation"
 	"github.com/goravel/framework/contracts/http"
 )
+
+type UserProviderFunc func(foundation.Application, config.Config) contractsauth.UserProvider
 
 type AuthManager struct {
 	app    foundation.Application
 	ctx    http.Context
 	customGuards map[string]contractsauth.AuthGuardFunc
 	guards map[string]contractsauth.Guard
+	providers map[string]contractsauth.UserProvider
+	customProviders map[string]UserProviderFunc
 }
 
 
