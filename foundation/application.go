@@ -8,12 +8,13 @@ import (
 	"strings"
 
 	"github.com/goravel/framework/config"
-	consolecontract "github.com/goravel/framework/contracts/console"
+	contractsconsole "github.com/goravel/framework/contracts/console"
 	"github.com/goravel/framework/contracts/foundation"
 	"github.com/goravel/framework/foundation/console"
 	"github.com/goravel/framework/foundation/json"
 	"github.com/goravel/framework/support"
 	"github.com/goravel/framework/support/carbon"
+	"github.com/goravel/framework/support/color"
 )
 
 var (
@@ -38,7 +39,7 @@ func init() {
 }
 
 type Application struct {
-	foundation.Container
+	*Container
 	publishes     map[string]map[string]string
 	publishGroups map[string]map[string]string
 	json          foundation.Json
@@ -52,7 +53,7 @@ func NewApplication() foundation.Application {
 func (app *Application) Boot() {
 	app.registerConfiguredServiceProviders()
 	app.bootConfiguredServiceProviders()
-	app.registerCommands([]consolecontract.Command{
+	app.registerCommands([]contractsconsole.Command{
 		console.NewTestMakeCommand(),
 		console.NewPackageMakeCommand(),
 		console.NewVendorPublishCommand(app.publishes, app.publishGroups),
@@ -61,7 +62,7 @@ func (app *Application) Boot() {
 	app.bootArtisan()
 }
 
-func (app *Application) Commands(commands []consolecontract.Command) {
+func (app *Application) Commands(commands []contractsconsole.Command) {
 	app.registerCommands(commands)
 }
 
@@ -90,7 +91,12 @@ func (app *Application) StoragePath(path ...string) string {
 }
 
 func (app *Application) LangPath(path ...string) string {
-	path = append([]string{app.MakeConfig().GetString("app.lang_path", "lang")}, path...)
+	defaultPath := "lang"
+	if configFacade := app.MakeConfig(); configFacade != nil {
+		defaultPath = configFacade.GetString("app.lang_path", defaultPath)
+	}
+
+	path = append([]string{defaultPath}, path...)
 	return filepath.Join(path...)
 }
 
@@ -105,12 +111,12 @@ func (app *Application) ExecutablePath(path ...string) string {
 }
 
 func (app *Application) Publishes(packageName string, paths map[string]string, groups ...string) {
-	app.ensurePublishArrayInitialized(packageName)
-
+	if _, exist := app.publishes[packageName]; !exist {
+		app.publishes[packageName] = make(map[string]string)
+	}
 	for key, value := range paths {
 		app.publishes[packageName][key] = value
 	}
-
 	for _, group := range groups {
 		app.addPublishGroup(group, paths)
 	}
@@ -121,11 +127,23 @@ func (app *Application) Version() string {
 }
 
 func (app *Application) CurrentLocale(ctx context.Context) string {
-	return app.MakeLang(ctx).CurrentLocale()
+	lang := app.MakeLang(ctx)
+	if lang == nil {
+		color.Red().Println("Error: Lang facade not initialized.")
+		return ""
+	}
+
+	return lang.CurrentLocale()
 }
 
 func (app *Application) SetLocale(ctx context.Context, locale string) context.Context {
-	return app.MakeLang(ctx).SetLocale(locale)
+	lang := app.MakeLang(ctx)
+	if lang == nil {
+		color.Red().Println("Error: Lang facade not initialized.")
+		return ctx
+	}
+
+	return lang.SetLocale(locale)
 }
 
 func (app *Application) SetJson(j foundation.Json) {
@@ -142,12 +160,6 @@ func (app *Application) IsLocale(ctx context.Context, locale string) bool {
 	return app.CurrentLocale(ctx) == locale
 }
 
-func (app *Application) ensurePublishArrayInitialized(packageName string) {
-	if _, exist := app.publishes[packageName]; !exist {
-		app.publishes[packageName] = make(map[string]string)
-	}
-}
-
 func (app *Application) addPublishGroup(group string, paths map[string]string) {
 	if _, exist := app.publishGroups[group]; !exist {
 		app.publishGroups[group] = make(map[string]string)
@@ -160,7 +172,13 @@ func (app *Application) addPublishGroup(group string, paths map[string]string) {
 
 // bootArtisan Boot artisan command.
 func (app *Application) bootArtisan() {
-	app.MakeArtisan().Run(os.Args, true)
+	artisanFacade := app.MakeArtisan()
+	if artisanFacade == nil {
+		color.Yellow().Println("Warning: Artisan Facade is not initialized. Skipping artisan command execution.")
+		return
+	}
+
+	artisanFacade.Run(os.Args, true)
 }
 
 // getBaseServiceProviders Get base service providers.
@@ -172,7 +190,18 @@ func (app *Application) getBaseServiceProviders() []foundation.ServiceProvider {
 
 // getConfiguredServiceProviders Get configured service providers.
 func (app *Application) getConfiguredServiceProviders() []foundation.ServiceProvider {
-	return app.MakeConfig().Get("app.providers").([]foundation.ServiceProvider)
+	configFacade := app.MakeConfig()
+	if configFacade == nil {
+		color.Yellow().Println("Warning: config facade is not initialized. Skipping registering service providers.")
+		return []foundation.ServiceProvider{}
+	}
+
+	providers, ok := configFacade.Get("app.providers").([]foundation.ServiceProvider)
+	if !ok {
+		color.Yellow().Println("Warning: providers configuration is not of type []foundation.ServiceProvider. Skipping registering service providers.")
+		return []foundation.ServiceProvider{}
+	}
+	return providers
 }
 
 // registerBaseServiceProviders Register base service providers.
@@ -209,12 +238,26 @@ func (app *Application) bootServiceProviders(serviceProviders []foundation.Servi
 	}
 }
 
-func (app *Application) registerCommands(commands []consolecontract.Command) {
-	app.MakeArtisan().Register(commands)
+func (app *Application) registerCommands(commands []contractsconsole.Command) {
+	artisanFacade := app.MakeArtisan()
+	if artisanFacade == nil {
+		color.Yellow().Println("Warning: Artisan Facade is not initialized. Skipping command registration.")
+		return
+	}
+
+	artisanFacade.Register(commands)
 }
 
 func (app *Application) setTimezone() {
-	carbon.SetTimezone(app.MakeConfig().GetString("app.timezone", carbon.UTC))
+	configFacade := app.MakeConfig()
+	if configFacade == nil {
+		color.Yellow().Println("Warning: config facade is not initialized. Using default timezone UTC.")
+		carbon.SetTimezone(carbon.UTC)
+		return
+	}
+
+	carbon.SetTimezone(configFacade.GetString("app.timezone", carbon.UTC))
+
 }
 
 func setEnv() {

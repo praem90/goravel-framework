@@ -17,48 +17,54 @@ const BindingSeeder = "goravel.seeder"
 type ServiceProvider struct {
 }
 
-func (database *ServiceProvider) Register(app foundation.Application) {
+func (r *ServiceProvider) Register(app foundation.Application) {
 	app.Singleton(BindingOrm, func(app foundation.Application) (any, error) {
+		ctx := context.Background()
 		config := app.MakeConfig()
-		defaultConnection := config.GetString("database.default")
-
-		orm, err := InitializeOrm(context.Background(), config, defaultConnection)
+		log := app.MakeLog()
+		connection := config.GetString("database.default")
+		orm, err := BuildOrm(ctx, config, connection, log, app.Refresh)
 		if err != nil {
-			return nil, fmt.Errorf("[Orm] Init %s connection error: %v", defaultConnection, err)
+			return nil, fmt.Errorf("[Orm] Init %s connection error: %v", connection, err)
 		}
 
 		return orm, nil
 	})
 	app.Singleton(BindingSchema, func(app foundation.Application) (any, error) {
 		orm := app.MakeOrm()
+		config := app.MakeConfig()
+		log := app.MakeLog()
 
-		return migration.NewSchema(orm), nil
+		connection := config.GetString("database.default")
+
+		return migration.NewSchema(config, connection, log, orm), nil
 	})
 	app.Singleton(BindingSeeder, func(app foundation.Application) (any, error) {
 		return NewSeederFacade(), nil
 	})
 }
 
-func (database *ServiceProvider) Boot(app foundation.Application) {
-	database.registerCommands(app)
+func (r *ServiceProvider) Boot(app foundation.Application) {
+	r.registerCommands(app)
 }
 
-func (database *ServiceProvider) registerCommands(app foundation.Application) {
-	config := app.MakeConfig()
-	seeder := app.MakeSeeder()
-	artisan := app.MakeArtisan()
-	app.MakeArtisan().Register([]consolecontract.Command{
-		console.NewMigrateMakeCommand(config),
-		console.NewMigrateCommand(config),
-		console.NewMigrateRollbackCommand(config),
-		console.NewMigrateResetCommand(config),
-		console.NewMigrateRefreshCommand(config, artisan),
-		console.NewMigrateFreshCommand(config, artisan),
-		console.NewMigrateStatusCommand(config),
-		console.NewModelMakeCommand(),
-		console.NewObserverMakeCommand(),
-		console.NewSeedCommand(config, seeder),
-		console.NewSeederMakeCommand(),
-		console.NewFactoryMakeCommand(),
-	})
+func (r *ServiceProvider) registerCommands(app foundation.Application) {
+	if artisanFacade := app.MakeArtisan(); artisanFacade != nil {
+		config := app.MakeConfig()
+		seeder := app.MakeSeeder()
+		artisanFacade.Register([]consolecontract.Command{
+			console.NewMigrateMakeCommand(config),
+			console.NewMigrateCommand(config),
+			console.NewMigrateRollbackCommand(config),
+			console.NewMigrateResetCommand(config),
+			console.NewMigrateRefreshCommand(config, artisanFacade),
+			console.NewMigrateFreshCommand(config, artisanFacade),
+			console.NewMigrateStatusCommand(config),
+			console.NewModelMakeCommand(),
+			console.NewObserverMakeCommand(),
+			console.NewSeedCommand(config, seeder),
+			console.NewSeederMakeCommand(),
+			console.NewFactoryMakeCommand(),
+		})
+	}
 }

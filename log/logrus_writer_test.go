@@ -404,8 +404,14 @@ func TestLogrusWithCustomLogger(t *testing.T) {
 	filename := "custom.log"
 
 	logger := NewApplication(mockConfig, json.NewJson())
-	logger.Channel("customLogger").
-		WithTrace().
+
+	assert.NotNil(t, logger)
+
+	channel := logger.Channel("customLogger")
+
+	assert.NotNil(t, channel)
+
+	channel.WithTrace().
 		With(map[string]any{"filename": filename}).
 		User(map[string]any{"name": "kkumar-gcc"}).
 		Owner("team@goravel.dev").
@@ -421,6 +427,8 @@ func TestLogrus_Fatal(t *testing.T) {
 	mockConfig := initMockConfig()
 	mockDriverConfig(mockConfig)
 	log := NewApplication(mockConfig, json.NewJson())
+
+	assert.NotNil(t, log)
 
 	if os.Getenv("FATAL") == "1" {
 		log.Fatal("Goravel")
@@ -442,6 +450,8 @@ func TestLogrus_Fatalf(t *testing.T) {
 	mockDriverConfig(mockConfig)
 	log := NewApplication(mockConfig, json.NewJson())
 
+	assert.NotNil(t, log)
+
 	if os.Getenv("FATAL") == "1" {
 		log.Fatalf("Goravel")
 		return
@@ -462,6 +472,8 @@ func Benchmark_Debug(b *testing.B) {
 	mockDriverConfig(mockConfig)
 	log := NewApplication(mockConfig, json.NewJson())
 
+	assert.NotNil(b, log)
+
 	for i := 0; i < b.N; i++ {
 		log.Debug("Debug Goravel")
 	}
@@ -473,6 +485,8 @@ func Benchmark_Info(b *testing.B) {
 	mockConfig := initMockConfig()
 	mockDriverConfig(mockConfig)
 	log := NewApplication(mockConfig, json.NewJson())
+
+	assert.NotNil(b, log)
 
 	for i := 0; i < b.N; i++ {
 		log.Info("Goravel")
@@ -486,6 +500,8 @@ func Benchmark_Warning(b *testing.B) {
 	mockDriverConfig(mockConfig)
 	log := NewApplication(mockConfig, json.NewJson())
 
+	assert.NotNil(b, log)
+
 	for i := 0; i < b.N; i++ {
 		log.Warning("Goravel")
 	}
@@ -497,6 +513,8 @@ func Benchmark_Error(b *testing.B) {
 	mockConfig := initMockConfig()
 	mockDriverConfig(mockConfig)
 	log := NewApplication(mockConfig, json.NewJson())
+
+	assert.NotNil(b, log)
 
 	for i := 0; i < b.N; i++ {
 		log.Error("Goravel")
@@ -513,6 +531,8 @@ func Benchmark_Panic(b *testing.B) {
 	mockConfig := initMockConfig()
 	mockDriverConfig(mockConfig)
 	log := NewApplication(mockConfig, json.NewJson())
+
+	assert.NotNil(b, log)
 
 	for i := 0; i < b.N; i++ {
 		defer func() {

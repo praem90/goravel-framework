@@ -5,20 +5,20 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/goravel/framework/contracts/database/orm"
+	"github.com/goravel/framework/contracts/database"
 	contractstesting "github.com/goravel/framework/contracts/testing"
-	configmocks "github.com/goravel/framework/mocks/config"
+	mocksconfig "github.com/goravel/framework/mocks/config"
 	"github.com/goravel/framework/support/env"
 )
 
 type SqlserverTestSuite struct {
 	suite.Suite
-	mockConfig *configmocks.Config
+	mockConfig *mocksconfig.Config
 	sqlserver  *SqlserverImpl
 }
 
 func TestSqlserverTestSuite(t *testing.T) {
-	if env.IsWindows() {
+	if env.IsWindows() || TestModel == TestModelNormal {
 		t.Skip("Skipping tests of using docker")
 	}
 
@@ -26,8 +26,8 @@ func TestSqlserverTestSuite(t *testing.T) {
 }
 
 func (s *SqlserverTestSuite) SetupTest() {
-	s.mockConfig = &configmocks.Config{}
-	s.sqlserver = NewSqlserverImpl(database, username, password)
+	s.mockConfig = &mocksconfig.Config{}
+	s.sqlserver = NewSqlserverImpl(testDatabase, testUsername, testPassword)
 }
 
 func (s *SqlserverTestSuite) TestBuild() {
@@ -37,9 +37,9 @@ func (s *SqlserverTestSuite) TestBuild() {
 	s.NotNil(instance)
 
 	s.Equal("127.0.0.1", s.sqlserver.Config().Host)
-	s.Equal("goravel", s.sqlserver.Config().Database)
-	s.Equal("goravel", s.sqlserver.Config().Username)
-	s.Equal("Goravel123", s.sqlserver.Config().Password)
+	s.Equal(testDatabase, s.sqlserver.Config().Database)
+	s.Equal(testUsername, s.sqlserver.Config().Username)
+	s.Equal(testPassword, s.sqlserver.Config().Password)
 	s.True(s.sqlserver.Config().Port > 0)
 
 	res := instance.Exec(`
@@ -75,14 +75,14 @@ func (s *SqlserverTestSuite) TestBuild() {
 	s.Nil(s.sqlserver.Stop())
 }
 
+func (s *SqlserverTestSuite) TestDriver() {
+	s.Equal(database.DriverSqlserver, s.sqlserver.Driver())
+}
+
 func (s *SqlserverTestSuite) TestImage() {
 	image := contractstesting.Image{
 		Repository: "sqlserver",
 	}
 	s.sqlserver.Image(image)
 	s.Equal(&image, s.sqlserver.image)
-}
-
-func (s *SqlserverTestSuite) TestName() {
-	s.Equal(orm.DriverSqlserver, s.sqlserver.Name())
 }

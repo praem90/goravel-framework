@@ -2,523 +2,583 @@ package gorm
 
 import (
 	"context"
-	"errors"
+	"fmt"
+	"slices"
 
-	"github.com/goravel/framework/contracts/database"
+	contractsdatabase "github.com/goravel/framework/contracts/database"
 	"github.com/goravel/framework/contracts/database/orm"
 	"github.com/goravel/framework/contracts/testing"
 	mocksconfig "github.com/goravel/framework/mocks/config"
+	supportdocker "github.com/goravel/framework/support/docker"
 )
 
-var testContext context.Context
+type TestTable int
 
-type MysqlDocker struct {
-	MockConfig *mocksconfig.Config
-	Port       int
-	user       string
+const (
+	TestTableAddresses TestTable = iota
+	TestTableAuthors
+	TestTableBooks
+	TestTableHouses
+	TestTablePeoples
+	TestTablePhones
+	TestTableProducts
+	TestTableReviews
+	TestTableRoles
+	TestTableRoleUser
+	TestTableUsers
+	TestTableGoravelUser
+)
+
+var testContext = context.Background()
+
+type TestReadWriteConfig struct {
+	ReadPort  int
+	WritePort int
+
+	// Used by Sqlite
+	ReadDatabase string
+}
+
+type testMockDriver interface {
+	Common()
+	ReadWrite(config TestReadWriteConfig)
+	WithPrefixAndSingular()
+}
+
+type TestQueries struct {
+	mysqlDockers     []testing.DatabaseDriver
+	postgresDockers  []testing.DatabaseDriver
+	sqliteDockers    []testing.DatabaseDriver
+	sqlserverDockers []testing.DatabaseDriver
+}
+
+func NewTestQueries() *TestQueries {
+	if supportdocker.TestModel == supportdocker.TestModelMinimum {
+		return &TestQueries{
+			sqliteDockers:   supportdocker.Sqlites(2),
+			postgresDockers: supportdocker.Postgreses(2),
+		}
+	}
+
+	return &TestQueries{
+		mysqlDockers:     supportdocker.Mysqls(2),
+		postgresDockers:  supportdocker.Postgreses(2),
+		sqliteDockers:    supportdocker.Sqlites(2),
+		sqlserverDockers: supportdocker.Sqlservers(2),
+	}
+}
+
+func (r *TestQueries) Queries() map[contractsdatabase.Driver]*TestQuery {
+	return r.queries(false)
+}
+
+func (r *TestQueries) QueriesOfReadWrite() map[contractsdatabase.Driver]map[string]orm.Query {
+	readPostgresQuery := NewTestQuery(r.postgresDockers[0])
+	readPostgresQuery.CreateTable(TestTableUsers)
+
+	writePostgresQuery := NewTestQuery(r.postgresDockers[1])
+	writePostgresQuery.CreateTable(TestTableUsers)
+
+	postgresQuery, err := writePostgresQuery.QueryOfReadWrite(TestReadWriteConfig{
+		ReadPort:  readPostgresQuery.Docker().Config().Port,
+		WritePort: writePostgresQuery.Docker().Config().Port,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	readSqliteQuery := NewTestQuery(r.sqliteDockers[0])
+	readSqliteQuery.CreateTable(TestTableUsers)
+
+	writeSqliteQuery := NewTestQuery(r.sqliteDockers[1])
+	writeSqliteQuery.CreateTable(TestTableUsers)
+
+	sqliteQuery, err := writeSqliteQuery.QueryOfReadWrite(TestReadWriteConfig{
+		ReadDatabase: readSqliteQuery.Docker().Config().Database,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	if supportdocker.TestModel == supportdocker.TestModelMinimum {
+		return map[contractsdatabase.Driver]map[string]orm.Query{
+			contractsdatabase.DriverPostgres: {
+				"mix":   postgresQuery,
+				"read":  readPostgresQuery.Query(),
+				"write": writePostgresQuery.Query(),
+			},
+			contractsdatabase.DriverSqlite: {
+				"mix":   sqliteQuery,
+				"read":  readSqliteQuery.Query(),
+				"write": writeSqliteQuery.Query(),
+			},
+		}
+	}
+
+	readMysqlQuery := NewTestQuery(r.mysqlDockers[0])
+	readMysqlQuery.CreateTable(TestTableUsers)
+
+	writeMysqlQuery := NewTestQuery(r.mysqlDockers[1])
+	writeMysqlQuery.CreateTable(TestTableUsers)
+
+	mysqlQuery, err := writeMysqlQuery.QueryOfReadWrite(TestReadWriteConfig{
+		ReadPort:  readMysqlQuery.Docker().Config().Port,
+		WritePort: writeMysqlQuery.Docker().Config().Port,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	readSqlserverQuery := NewTestQuery(r.sqlserverDockers[0])
+	readSqlserverQuery.CreateTable(TestTableUsers)
+
+	writeSqlserverQuery := NewTestQuery(r.sqlserverDockers[1])
+	writeSqlserverQuery.CreateTable(TestTableUsers)
+
+	sqlserverQuery, err := writeSqlserverQuery.QueryOfReadWrite(TestReadWriteConfig{
+		ReadPort:  readSqlserverQuery.Docker().Config().Port,
+		WritePort: writeSqlserverQuery.Docker().Config().Port,
+	})
+	if err != nil {
+		panic(err)
+	}
+
+	return map[contractsdatabase.Driver]map[string]orm.Query{
+		contractsdatabase.DriverMysql: {
+			"mix":   mysqlQuery,
+			"read":  readMysqlQuery.Query(),
+			"write": writeMysqlQuery.Query(),
+		},
+		contractsdatabase.DriverPostgres: {
+			"mix":   postgresQuery,
+			"read":  readPostgresQuery.Query(),
+			"write": writePostgresQuery.Query(),
+		},
+		contractsdatabase.DriverSqlite: {
+			"mix":   sqliteQuery,
+			"read":  readSqliteQuery.Query(),
+			"write": writeSqliteQuery.Query(),
+		},
+		contractsdatabase.DriverSqlserver: {
+			"mix":   sqlserverQuery,
+			"read":  readSqlserverQuery.Query(),
+			"write": writeSqlserverQuery.Query(),
+		},
+	}
+}
+
+func (r *TestQueries) QueriesWithPrefixAndSingular() map[contractsdatabase.Driver]*TestQuery {
+	return r.queries(true)
+}
+
+func (r *TestQueries) QueryOfAdditional() *TestQuery {
+	postgresQuery := NewTestQuery(r.postgresDockers[1])
+	postgresQuery.CreateTable()
+
+	return postgresQuery
+}
+
+func (r *TestQueries) queries(withPrefixAndSingular bool) map[contractsdatabase.Driver]*TestQuery {
+	driverToTestQuery := make(map[contractsdatabase.Driver]*TestQuery)
+
+	driverToDocker := map[contractsdatabase.Driver]testing.DatabaseDriver{
+		contractsdatabase.DriverPostgres: r.postgresDockers[0],
+		contractsdatabase.DriverSqlite:   r.sqliteDockers[0],
+	}
+
+	if supportdocker.TestModel != supportdocker.TestModelMinimum {
+		driverToDocker[contractsdatabase.DriverMysql] = r.mysqlDockers[0]
+		driverToDocker[contractsdatabase.DriverSqlserver] = r.sqlserverDockers[0]
+	}
+
+	for driver, docker := range driverToDocker {
+		query := NewTestQuery(docker, withPrefixAndSingular)
+		query.CreateTable()
+		driverToTestQuery[driver] = query
+	}
+
+	return driverToTestQuery
+}
+
+type TestQuery struct {
+	docker     testing.DatabaseDriver
+	mockConfig *mocksconfig.Config
+	mockDriver testMockDriver
+	query      orm.Query
+}
+
+func NewTestQuery(docker testing.DatabaseDriver, withPrefixAndSingular ...bool) *TestQuery {
+	mockConfig := &mocksconfig.Config{}
+	mockDriver := getMockDriver(docker, mockConfig, docker.Driver().String())
+
+	testQuery := &TestQuery{
+		docker:     docker,
+		mockConfig: mockConfig,
+		mockDriver: mockDriver,
+	}
+
+	var (
+		query *Query
+		err   error
+	)
+	if len(withPrefixAndSingular) > 0 && withPrefixAndSingular[0] {
+		mockDriver.WithPrefixAndSingular()
+		query, err = BuildQuery(testContext, mockConfig, docker.Driver().String(), nil)
+	} else {
+		mockDriver.Common()
+		query, err = BuildQuery(testContext, mockConfig, docker.Driver().String(), nil)
+	}
+
+	if err != nil {
+		panic(fmt.Sprintf("connect to %s failed: %v", docker.Driver().String(), err))
+	}
+
+	testQuery.query = query
+
+	return testQuery
+}
+
+func (r *TestQuery) CreateTable(testTables ...TestTable) {
+	for table, sql := range newTestTables(r.docker.Driver()).All() {
+		if len(testTables) == 0 || slices.Contains(testTables, table) {
+			if _, err := r.query.Exec(sql()); err != nil {
+				panic(fmt.Sprintf("create table %v failed: %v", table, err))
+			}
+		}
+	}
+}
+
+func (r *TestQuery) Docker() testing.DatabaseDriver {
+	return r.docker
+}
+
+func (r *TestQuery) MockConfig() *mocksconfig.Config {
+	return r.mockConfig
+}
+
+func (r *TestQuery) Query() orm.Query {
+	return r.query
+}
+
+func (r *TestQuery) QueryOfReadWrite(config TestReadWriteConfig) (orm.Query, error) {
+	mockConfig := &mocksconfig.Config{}
+	mockDriver := getMockDriver(r.Docker(), mockConfig, r.Docker().Driver().String())
+	mockDriver.ReadWrite(config)
+
+	return BuildQuery(testContext, mockConfig, r.docker.Driver().String(), nil)
+}
+
+func getMockDriver(docker testing.DatabaseDriver, mockConfig *mocksconfig.Config, connection string) testMockDriver {
+	config := docker.Config()
+
+	switch docker.Driver() {
+	case contractsdatabase.DriverMysql:
+		return NewMockMysql(mockConfig, connection, config.Database, config.Username, config.Password, config.Port)
+	case contractsdatabase.DriverPostgres:
+		return NewMockPostgres(mockConfig, connection, config.Database, config.Username, config.Password, config.Port)
+	case contractsdatabase.DriverSqlite:
+		return NewMockSqlite(mockConfig, connection, config.Database)
+	case contractsdatabase.DriverSqlserver:
+		return NewMockSqlserver(mockConfig, connection, config.Database, config.Username, config.Password, config.Port)
+	default:
+		panic("unsupported driver")
+	}
+}
+
+type MockMysql struct {
+	driver     contractsdatabase.Driver
+	mockConfig *mocksconfig.Config
+
+	connection string
+	database   string
 	password   string
+	user       string
+	port       int
+}
+
+func NewMockMysql(mockConfig *mocksconfig.Config, connection, database, username, password string, port int) *MockMysql {
+	return &MockMysql{
+		driver:     contractsdatabase.DriverMysql,
+		mockConfig: mockConfig,
+		connection: connection,
+		database:   database,
+		user:       username,
+		password:   password,
+		port:       port,
+	}
+}
+
+func (r *MockMysql) Common() {
+	r.mockConfig.On("GetString", "database.default").Return("mysql")
+	r.mockConfig.On("GetString", "database.migrations").Return("migrations")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(false)
+	r.single()
+	r.basic()
+}
+
+func (r *MockMysql) ReadWrite(config TestReadWriteConfig) {
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.read", r.connection)).Return([]contractsdatabase.Config{
+		{Host: "127.0.0.1", Port: config.ReadPort, Username: r.user, Password: r.password},
+	})
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.write", r.connection)).Return([]contractsdatabase.Config{
+		{Host: "127.0.0.1", Port: config.WritePort, Username: r.user, Password: r.password},
+	})
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(false)
+	r.basic()
+}
+
+func (r *MockMysql) WithPrefixAndSingular() {
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("goravel_")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(true)
+	r.single()
+	r.basic()
+}
+
+func (r *MockMysql) basic() {
+	r.mockConfig.On("GetBool", "app.debug").Return(true)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.driver", r.connection)).Return(r.driver.String())
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.charset", r.connection)).Return("utf8mb4")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.loc", r.connection)).Return("Local")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.database", r.connection)).Return(r.database)
+
+	mockPool(r.mockConfig)
+}
+
+func (r *MockMysql) single() {
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.read", r.connection)).Return(nil)
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.write", r.connection)).Return(nil)
+	r.mockConfig.On("GetBool", "app.debug").Return(true)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.host", r.connection)).Return("127.0.0.1")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.username", r.connection)).Return(r.user)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.password", r.connection)).Return(r.password)
+	r.mockConfig.On("GetInt", fmt.Sprintf("database.connections.%s.port", r.connection)).Return(r.port)
+}
+
+type MockPostgres struct {
+	driver     contractsdatabase.Driver
+	mockConfig *mocksconfig.Config
+
+	connection string
+	database   string
+	password   string
+	user       string
+	port       int
+}
+
+func NewMockPostgres(mockConfig *mocksconfig.Config, connection, database, username, password string, port int) *MockPostgres {
+	return &MockPostgres{
+		driver:     contractsdatabase.DriverPostgres,
+		mockConfig: mockConfig,
+		connection: connection,
+		database:   database,
+		user:       username,
+		password:   password,
+		port:       port,
+	}
+}
+
+func (r *MockPostgres) Common() {
+	r.mockConfig.On("GetString", "database.default").Return("postgres")
+	r.mockConfig.On("GetString", "database.migrations").Return("migrations")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(false)
+	r.single()
+	r.basic()
+}
+
+func (r *MockPostgres) ReadWrite(config TestReadWriteConfig) {
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.read", r.connection)).Return([]contractsdatabase.Config{
+		{Host: "127.0.0.1", Port: config.ReadPort, Username: r.user, Password: r.password},
+	})
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.write", r.connection)).Return([]contractsdatabase.Config{
+		{Host: "127.0.0.1", Port: config.WritePort, Username: r.user, Password: r.password},
+	})
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(false)
+	r.basic()
+}
+
+func (r *MockPostgres) WithPrefixAndSingular() {
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("goravel_")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(true)
+	r.single()
+	r.basic()
+}
+
+func (r *MockPostgres) basic() {
+	r.mockConfig.On("GetBool", "app.debug").Return(true)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.driver", r.connection)).Return(r.driver.String())
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.sslmode", r.connection)).Return("disable")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.timezone", r.connection)).Return("UTC")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.database", r.connection)).Return(r.database)
+
+	mockPool(r.mockConfig)
+}
+
+func (r *MockPostgres) single() {
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.read", r.connection)).Return(nil)
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.write", r.connection)).Return(nil)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.host", r.connection)).Return("127.0.0.1")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.username", r.connection)).Return(r.user)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.password", r.connection)).Return(r.password)
+	r.mockConfig.On("GetInt", fmt.Sprintf("database.connections.%s.port", r.connection)).Return(r.port)
+}
+
+type MockSqlite struct {
+	driver     contractsdatabase.Driver
+	mockConfig *mocksconfig.Config
+
+	connection string
 	database   string
 }
 
-func NewMysqlDocker(driver testing.DatabaseDriver) *MysqlDocker {
-	config := driver.Config()
-
-	return &MysqlDocker{MockConfig: &mocksconfig.Config{}, Port: config.Port, user: config.Username, password: config.Password, database: config.Database}
+func NewMockSqlite(mockConfig *mocksconfig.Config, connection, database string) *MockSqlite {
+	return &MockSqlite{
+		driver:     contractsdatabase.DriverSqlite,
+		mockConfig: mockConfig,
+		connection: connection,
+		database:   database,
+	}
 }
 
-func (r *MysqlDocker) New() (orm.Query, error) {
-	r.mock()
-
-	db, err := r.Query(true)
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
+func (r *MockSqlite) Common() {
+	r.mockConfig.On("GetString", "database.default").Return("sqlite")
+	r.mockConfig.On("GetString", "database.migrations").Return("migrations")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(false)
+	r.single()
+	r.basic()
 }
 
-func (r *MysqlDocker) NewWithPrefixAndSingular() (orm.Query, error) {
-	r.mockWithPrefixAndSingular()
-
-	db, err := r.QueryWithPrefixAndSingular()
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-func (r *MysqlDocker) Query(createTable bool) (orm.Query, error) {
-	query, err := InitializeQuery(testContext, r.MockConfig, orm.DriverMysql.String())
-	if err != nil {
-		return nil, errors.New("connect to mysql failed")
-	}
-
-	if createTable {
-		err := Tables{}.Create(orm.DriverMysql, query)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return query, nil
-}
-
-func (r *MysqlDocker) QueryWithPrefixAndSingular() (orm.Query, error) {
-	query, err := InitializeQuery(testContext, r.MockConfig, orm.DriverMysql.String())
-	if err != nil {
-		return nil, errors.New("connect to mysql failed")
-	}
-
-	err = Tables{}.CreateWithPrefixAndSingular(orm.DriverMysql, query)
-	if err != nil {
-		return nil, err
-	}
-
-	return query, nil
-}
-
-func (r *MysqlDocker) MockReadWrite(readPort, writePort int) {
-	r.MockConfig = &mocksconfig.Config{}
-	r.MockConfig.On("Get", "database.connections.mysql.read").Return([]database.Config{
-		{Host: "127.0.0.1", Port: readPort, Username: r.user, Password: r.password},
+func (r *MockSqlite) ReadWrite(config TestReadWriteConfig) {
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.read", r.connection)).Return([]contractsdatabase.Config{
+		{Database: config.ReadDatabase},
 	})
-	r.MockConfig.On("Get", "database.connections.mysql.write").Return([]database.Config{
-		{Host: "127.0.0.1", Port: writePort, Username: r.user, Password: r.password},
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.write", r.connection)).Return([]contractsdatabase.Config{
+		{Database: r.database},
 	})
-	r.MockConfig.On("GetString", "database.connections.mysql.prefix").Return("")
-	r.MockConfig.On("GetBool", "database.connections.mysql.singular").Return(false)
-	r.mockOfCommon()
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(false)
+	r.basic()
 }
 
-func (r *MysqlDocker) mock() {
-	r.MockConfig.On("GetString", "database.default").Return("mysql")
-	r.MockConfig.On("GetString", "database.migrations").Return("migrations")
-	r.MockConfig.On("GetString", "database.connections.mysql.prefix").Return("")
-	r.MockConfig.On("GetBool", "database.connections.mysql.singular").Return(false)
-	r.mockSingleOfCommon()
-	r.mockOfCommon()
+func (r *MockSqlite) WithPrefixAndSingular() {
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("goravel_")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(true)
+	r.single()
+	r.basic()
 }
 
-func (r *MysqlDocker) mockWithPrefixAndSingular() {
-	r.MockConfig.On("GetString", "database.connections.mysql.prefix").Return("goravel_")
-	r.MockConfig.On("GetBool", "database.connections.mysql.singular").Return(true)
-	r.mockSingleOfCommon()
-	r.mockOfCommon()
+func (r *MockSqlite) basic() {
+	r.mockConfig.On("GetBool", "app.debug").Return(true)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.driver", r.connection)).Return(r.driver.String())
+	mockPool(r.mockConfig)
 }
 
-func (r *MysqlDocker) mockSingleOfCommon() {
-	r.MockConfig.On("Get", "database.connections.mysql.read").Return(nil)
-	r.MockConfig.On("Get", "database.connections.mysql.write").Return(nil)
-	r.MockConfig.On("GetBool", "app.debug").Return(true)
-	r.MockConfig.On("GetString", "database.connections.mysql.host").Return("127.0.0.1")
-	r.MockConfig.On("GetString", "database.connections.mysql.username").Return(r.user)
-	r.MockConfig.On("GetString", "database.connections.mysql.password").Return(r.password)
-	r.MockConfig.On("GetInt", "database.connections.mysql.port").Return(r.Port)
+func (r *MockSqlite) single() {
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.read", r.connection)).Return(nil)
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.write", r.connection)).Return(nil)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.database", r.connection)).Return(r.database)
 }
 
-func (r *MysqlDocker) mockOfCommon() {
-	r.MockConfig.On("GetBool", "app.debug").Return(true)
-	r.MockConfig.On("GetString", "database.connections.mysql.driver").Return(orm.DriverMysql.String())
-	r.MockConfig.On("GetString", "database.connections.mysql.charset").Return("utf8mb4")
-	r.MockConfig.On("GetString", "database.connections.mysql.loc").Return("Local")
-	r.MockConfig.On("GetString", "database.connections.mysql.database").Return(r.database)
+type MockSqlserver struct {
+	driver     contractsdatabase.Driver
+	mockConfig *mocksconfig.Config
 
-	mockPool(r.MockConfig)
-}
-
-type PostgresDocker struct {
-	MockConfig *mocksconfig.Config
-	Port       int
-	user       string
+	connection string
 	database   string
 	password   string
-}
-
-func NewPostgresDocker(driver testing.DatabaseDriver) *PostgresDocker {
-	config := driver.Config()
-
-	return &PostgresDocker{MockConfig: &mocksconfig.Config{}, Port: config.Port, user: config.Username, password: config.Password, database: config.Database}
-}
-
-func (r *PostgresDocker) New() (orm.Query, error) {
-	r.mock()
-
-	db, err := r.Query(true)
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-func (r *PostgresDocker) NewWithPrefixAndSingular() (orm.Query, error) {
-	r.mockWithPrefixAndSingular()
-
-	db, err := r.QueryWithPrefixAndSingular()
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-func (r *PostgresDocker) Query(createTable bool) (orm.Query, error) {
-	query, err := InitializeQuery(testContext, r.MockConfig, orm.DriverPostgres.String())
-	if err != nil {
-		return nil, errors.New("connect to postgres failed")
-	}
-
-	if createTable {
-		err := Tables{}.Create(orm.DriverPostgres, query)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return query, nil
-}
-
-func (r *PostgresDocker) QueryWithPrefixAndSingular() (orm.Query, error) {
-	query, err := InitializeQuery(testContext, r.MockConfig, orm.DriverPostgres.String())
-	if err != nil {
-		return nil, errors.New("connect to postgres failed")
-	}
-
-	err = Tables{}.CreateWithPrefixAndSingular(orm.DriverPostgres, query)
-	if err != nil {
-		return nil, err
-	}
-
-	return query, nil
-}
-
-func (r *PostgresDocker) MockReadWrite(readPort, writePort int) {
-	r.MockConfig = &mocksconfig.Config{}
-	r.MockConfig.On("Get", "database.connections.postgres.read").Return([]database.Config{
-		{Host: "127.0.0.1", Port: readPort, Username: r.user, Password: r.password},
-	})
-	r.MockConfig.On("Get", "database.connections.postgres.write").Return([]database.Config{
-		{Host: "127.0.0.1", Port: writePort, Username: r.user, Password: r.password},
-	})
-	r.MockConfig.On("GetString", "database.connections.postgres.prefix").Return("")
-	r.MockConfig.On("GetBool", "database.connections.postgres.singular").Return(false)
-	r.mockOfCommon()
-}
-
-func (r *PostgresDocker) mock() {
-	r.MockConfig.On("GetString", "database.default").Return("postgres")
-	r.MockConfig.On("GetString", "database.migrations").Return("migrations")
-	r.MockConfig.On("GetString", "database.connections.postgres.prefix").Return("")
-	r.MockConfig.On("GetBool", "database.connections.postgres.singular").Return(false)
-	r.mockSingleOfCommon()
-	r.mockOfCommon()
-}
-
-func (r *PostgresDocker) mockWithPrefixAndSingular() {
-	r.MockConfig.On("GetString", "database.connections.postgres.prefix").Return("goravel_")
-	r.MockConfig.On("GetBool", "database.connections.postgres.singular").Return(true)
-	r.mockSingleOfCommon()
-	r.mockOfCommon()
-}
-
-func (r *PostgresDocker) mockSingleOfCommon() {
-	r.MockConfig.On("Get", "database.connections.postgres.read").Return(nil)
-	r.MockConfig.On("Get", "database.connections.postgres.write").Return(nil)
-	r.MockConfig.On("GetString", "database.connections.postgres.host").Return("127.0.0.1")
-	r.MockConfig.On("GetString", "database.connections.postgres.username").Return(r.user)
-	r.MockConfig.On("GetString", "database.connections.postgres.password").Return(r.password)
-	r.MockConfig.On("GetInt", "database.connections.postgres.port").Return(r.Port)
-}
-
-func (r *PostgresDocker) mockOfCommon() {
-	r.MockConfig.On("GetBool", "app.debug").Return(true)
-	r.MockConfig.On("GetString", "database.connections.postgres.driver").Return(orm.DriverPostgres.String())
-	r.MockConfig.On("GetString", "database.connections.postgres.sslmode").Return("disable")
-	r.MockConfig.On("GetString", "database.connections.postgres.timezone").Return("UTC")
-	r.MockConfig.On("GetString", "database.connections.postgres.database").Return(r.database)
-
-	mockPool(r.MockConfig)
-}
-
-type SqliteDocker struct {
-	name       string
-	MockConfig *mocksconfig.Config
-}
-
-func NewSqliteDocker(driver testing.DatabaseDriver) *SqliteDocker {
-	return &SqliteDocker{MockConfig: &mocksconfig.Config{}, name: driver.Config().Database}
-}
-
-func (r *SqliteDocker) New() (orm.Query, error) {
-	r.mock()
-
-	db, err := r.Query(true)
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-func (r *SqliteDocker) NewWithPrefixAndSingular() (orm.Query, error) {
-	r.mockWithPrefixAndSingular()
-
-	db, err := r.QueryWithPrefixAndSingular()
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-func (r *SqliteDocker) Query(createTable bool) (orm.Query, error) {
-	db, err := InitializeQuery(testContext, r.MockConfig, orm.DriverSqlite.String())
-	if err != nil {
-		return nil, err
-	}
-
-	if createTable {
-		err = Tables{}.Create(orm.DriverSqlite, db)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return db, nil
-}
-
-func (r *SqliteDocker) QueryWithPrefixAndSingular() (orm.Query, error) {
-	db, err := InitializeQuery(testContext, r.MockConfig, orm.DriverSqlite.String())
-	if err != nil {
-		return nil, err
-	}
-
-	err = Tables{}.CreateWithPrefixAndSingular(orm.DriverSqlite, db)
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
-}
-
-func (r *SqliteDocker) MockReadWrite(readDatabase string) {
-	r.MockConfig = &mocksconfig.Config{}
-	r.MockConfig.On("Get", "database.connections.sqlite.read").Return([]database.Config{
-		{Database: readDatabase},
-	})
-	r.MockConfig.On("Get", "database.connections.sqlite.write").Return([]database.Config{
-		{Database: r.name},
-	})
-	r.MockConfig.On("GetString", "database.connections.sqlite.prefix").Return("")
-	r.MockConfig.On("GetBool", "database.connections.sqlite.singular").Return(false)
-	r.mockOfCommon()
-}
-
-func (r *SqliteDocker) mock() {
-	r.MockConfig.On("GetString", "database.default").Return("sqlite")
-	r.MockConfig.On("GetString", "database.migrations").Return("migrations")
-	r.MockConfig.On("GetString", "database.connections.sqlite.prefix").Return("")
-	r.MockConfig.On("GetBool", "database.connections.sqlite.singular").Return(false)
-	r.mockSingleOfCommon()
-	r.mockOfCommon()
-}
-
-func (r *SqliteDocker) mockWithPrefixAndSingular() {
-	r.MockConfig.On("GetString", "database.connections.sqlite.prefix").Return("goravel_")
-	r.MockConfig.On("GetBool", "database.connections.sqlite.singular").Return(true)
-	r.mockSingleOfCommon()
-	r.mockOfCommon()
-}
-
-func (r *SqliteDocker) mockSingleOfCommon() {
-	r.MockConfig.On("Get", "database.connections.sqlite.read").Return(nil)
-	r.MockConfig.On("Get", "database.connections.sqlite.write").Return(nil)
-	r.MockConfig.On("GetString", "database.connections.sqlite.database").Return(r.name)
-}
-
-func (r *SqliteDocker) mockOfCommon() {
-	r.MockConfig.On("GetBool", "app.debug").Return(true)
-	r.MockConfig.On("GetString", "database.connections.sqlite.driver").Return(orm.DriverSqlite.String())
-	mockPool(r.MockConfig)
-}
-
-type SqlserverDocker struct {
-	MockConfig *mocksconfig.Config
-	Port       int
 	user       string
-	database   string
-	password   string
+	port       int
 }
 
-func NewSqlserverDocker(driver testing.DatabaseDriver) *SqlserverDocker {
-	config := driver.Config()
-
-	return &SqlserverDocker{MockConfig: &mocksconfig.Config{}, Port: config.Port, user: config.Username, password: config.Password, database: config.Database}
-}
-
-func (r *SqlserverDocker) New() (orm.Query, error) {
-	r.mock()
-
-	db, err := r.Query(true)
-	if err != nil {
-		return nil, err
+func NewMockSqlserver(mockConfig *mocksconfig.Config, connection, database, username, password string, port int) *MockSqlserver {
+	return &MockSqlserver{
+		driver:     contractsdatabase.DriverSqlserver,
+		mockConfig: mockConfig,
+		connection: connection,
+		database:   database,
+		user:       username,
+		password:   password,
+		port:       port,
 	}
-
-	return db, nil
 }
 
-func (r *SqlserverDocker) NewWithPrefixAndSingular() (orm.Query, error) {
-	r.mockWithPrefixAndSingular()
-
-	db, err := r.QueryWithPrefixAndSingular()
-	if err != nil {
-		return nil, err
-	}
-
-	return db, nil
+func (r *MockSqlserver) Common() {
+	r.mockConfig.On("GetString", "database.default").Return("sqlserver")
+	r.mockConfig.On("GetString", "database.migrations").Return("migrations")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(false)
+	r.single()
+	r.basic()
 }
 
-func (r *SqlserverDocker) Query(createTable bool) (orm.Query, error) {
-	query, err := InitializeQuery(testContext, r.MockConfig, orm.DriverSqlserver.String())
-	if err != nil {
-		return nil, errors.New("connect to sqlserver failed")
-	}
-
-	if createTable {
-		err := Tables{}.Create(orm.DriverSqlserver, query)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return query, nil
-}
-
-func (r *SqlserverDocker) QueryWithPrefixAndSingular() (orm.Query, error) {
-	query, err := InitializeQuery(testContext, r.MockConfig, orm.DriverSqlserver.String())
-	if err != nil {
-		return nil, errors.New("connect to sqlserver failed")
-	}
-
-	err = Tables{}.CreateWithPrefixAndSingular(orm.DriverSqlserver, query)
-	if err != nil {
-		return nil, err
-	}
-
-	return query, nil
-}
-
-func (r *SqlserverDocker) mock() {
-	r.MockConfig.On("GetString", "database.default").Return("sqlserver")
-	r.MockConfig.On("GetString", "database.migrations").Return("migrations")
-	r.MockConfig.On("GetString", "database.connections.sqlserver.prefix").Return("")
-	r.MockConfig.On("GetBool", "database.connections.sqlserver.singular").Return(false)
-	r.mockSingleOfCommon()
-	r.mockOfCommon()
-}
-
-func (r *SqlserverDocker) MockReadWrite(readPort, writePort int) {
-	r.MockConfig = &mocksconfig.Config{}
-	r.MockConfig.On("Get", "database.connections.sqlserver.read").Return([]database.Config{
-		{Host: "127.0.0.1", Port: readPort, Username: r.user, Password: r.password},
+func (r *MockSqlserver) ReadWrite(config TestReadWriteConfig) {
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.read", r.connection)).Return([]contractsdatabase.Config{
+		{Host: "127.0.0.1", Port: config.ReadPort, Username: r.user, Password: r.password},
 	})
-	r.MockConfig.On("Get", "database.connections.sqlserver.write").Return([]database.Config{
-		{Host: "127.0.0.1", Port: writePort, Username: r.user, Password: r.password},
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.write", r.connection)).Return([]contractsdatabase.Config{
+		{Host: "127.0.0.1", Port: config.WritePort, Username: r.user, Password: r.password},
 	})
-	r.MockConfig.On("GetString", "database.connections.sqlserver.prefix").Return("")
-	r.MockConfig.On("GetBool", "database.connections.sqlserver.singular").Return(false)
-	r.mockOfCommon()
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(false)
+	r.basic()
 }
 
-func (r *SqlserverDocker) mockWithPrefixAndSingular() {
-	r.MockConfig.On("GetString", "database.connections.sqlserver.prefix").Return("goravel_")
-	r.MockConfig.On("GetBool", "database.connections.sqlserver.singular").Return(true)
-	r.mockSingleOfCommon()
-	r.mockOfCommon()
+func (r *MockSqlserver) WithPrefixAndSingular() {
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.prefix", r.connection)).Return("goravel_")
+	r.mockConfig.On("GetBool", fmt.Sprintf("database.connections.%s.singular", r.connection)).Return(true)
+	r.single()
+	r.basic()
 }
 
-func (r *SqlserverDocker) mockSingleOfCommon() {
-	r.MockConfig.On("Get", "database.connections.sqlserver.read").Return(nil)
-	r.MockConfig.On("Get", "database.connections.sqlserver.write").Return(nil)
-	r.MockConfig.On("GetString", "database.connections.sqlserver.host").Return("127.0.0.1")
-	r.MockConfig.On("GetString", "database.connections.sqlserver.username").Return(r.user)
-	r.MockConfig.On("GetString", "database.connections.sqlserver.password").Return(r.password)
-	r.MockConfig.On("GetInt", "database.connections.sqlserver.port").Return(r.Port)
+func (r *MockSqlserver) basic() {
+	r.mockConfig.On("GetBool", "app.debug").Return(true)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.driver", r.connection)).Return(r.driver.String())
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.database", r.connection)).Return(r.database)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.charset", r.connection)).Return("utf8mb4")
+	mockPool(r.mockConfig)
 }
 
-func (r *SqlserverDocker) mockOfCommon() {
-	r.MockConfig.On("GetBool", "app.debug").Return(true)
-	r.MockConfig.On("GetString", "database.connections.sqlserver.driver").Return(orm.DriverSqlserver.String())
-	r.MockConfig.On("GetString", "database.connections.sqlserver.database").Return(r.database)
-	r.MockConfig.On("GetString", "database.connections.sqlserver.charset").Return("utf8mb4")
-	mockPool(r.MockConfig)
+func (r *MockSqlserver) single() {
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.read", r.connection)).Return(nil)
+	r.mockConfig.On("Get", fmt.Sprintf("database.connections.%s.write", r.connection)).Return(nil)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.host", r.connection)).Return("127.0.0.1")
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.username", r.connection)).Return(r.user)
+	r.mockConfig.On("GetString", fmt.Sprintf("database.connections.%s.password", r.connection)).Return(r.password)
+	r.mockConfig.On("GetInt", fmt.Sprintf("database.connections.%s.port", r.connection)).Return(r.port)
 }
 
-type Tables struct {
+type testTables struct {
+	driver contractsdatabase.Driver
 }
 
-func (r Tables) Create(driver orm.Driver, db orm.Query) error {
-	_, err := db.Exec(r.createPeopleTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createReviewTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createUserTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createProductTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createAddressTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createBookTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createRoleTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createHouseTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createPhoneTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createRoleUserTable(driver))
-	if err != nil {
-		return err
-	}
-	_, err = db.Exec(r.createAuthorTable(driver))
-	if err != nil {
-		return err
-	}
-
-	return nil
+func newTestTables(driver contractsdatabase.Driver) *testTables {
+	return &testTables{driver: driver}
 }
 
-func (r Tables) CreateWithPrefixAndSingular(driver orm.Driver, db orm.Query) error {
-	_, err := db.Exec(r.createUserTableWithPrefixAndSingular(driver))
-	if err != nil {
-		return err
+func (r *testTables) All() map[TestTable]func() string {
+	return map[TestTable]func() string{
+		TestTableAddresses:   r.addresses,
+		TestTableAuthors:     r.authors,
+		TestTableBooks:       r.books,
+		TestTableHouses:      r.houses,
+		TestTablePeoples:     r.peoples,
+		TestTablePhones:      r.phones,
+		TestTableProducts:    r.products,
+		TestTableReviews:     r.reviews,
+		TestTableRoles:       r.roles,
+		TestTableRoleUser:    r.roleUser,
+		TestTableUsers:       r.users,
+		TestTableGoravelUser: r.goravelUser,
 	}
-
-	return nil
 }
 
-func (r Tables) createPeopleTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) peoples() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE peoples (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -531,7 +591,7 @@ CREATE TABLE peoples (
   KEY idx_users_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE peoples (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -541,7 +601,7 @@ CREATE TABLE peoples (
   deleted_at timestamp DEFAULT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE peoples (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -551,7 +611,7 @@ CREATE TABLE peoples (
   deleted_at datetime DEFAULT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE peoples (
   id bigint NOT NULL IDENTITY(1,1),
@@ -567,9 +627,9 @@ CREATE TABLE peoples (
 	}
 }
 
-func (r Tables) createReviewTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) reviews() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE reviews (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -582,7 +642,7 @@ CREATE TABLE reviews (
   KEY idx_users_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE reviews (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -592,7 +652,7 @@ CREATE TABLE reviews (
   deleted_at timestamp DEFAULT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE reviews (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -602,7 +662,7 @@ CREATE TABLE reviews (
   deleted_at datetime DEFAULT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE reviews (
   id bigint NOT NULL IDENTITY(1,1),
@@ -618,9 +678,9 @@ CREATE TABLE reviews (
 	}
 }
 
-func (r Tables) createProductTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) products() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE products (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -633,7 +693,7 @@ CREATE TABLE products (
   KEY idx_users_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE products (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -643,7 +703,7 @@ CREATE TABLE products (
   deleted_at timestamp DEFAULT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE products (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -653,7 +713,7 @@ CREATE TABLE products (
   deleted_at datetime DEFAULT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE products (
   id bigint NOT NULL IDENTITY(1,1),
@@ -669,9 +729,9 @@ CREATE TABLE products (
 	}
 }
 
-func (r Tables) createUserTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) users() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE users (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -686,7 +746,7 @@ CREATE TABLE users (
   KEY idx_users_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE users (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -698,7 +758,7 @@ CREATE TABLE users (
   deleted_at timestamp DEFAULT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE users (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -710,7 +770,7 @@ CREATE TABLE users (
   deleted_at datetime DEFAULT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE users (
   id bigint NOT NULL IDENTITY(1,1),
@@ -728,9 +788,9 @@ CREATE TABLE users (
 	}
 }
 
-func (r Tables) createUserTableWithPrefixAndSingular(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) goravelUser() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE goravel_user (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -745,7 +805,7 @@ CREATE TABLE goravel_user (
   KEY idx_users_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE goravel_user (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -757,7 +817,7 @@ CREATE TABLE goravel_user (
   deleted_at timestamp DEFAULT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE goravel_user (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -769,7 +829,7 @@ CREATE TABLE goravel_user (
   deleted_at datetime DEFAULT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE goravel_user (
   id bigint NOT NULL IDENTITY(1,1),
@@ -787,9 +847,9 @@ CREATE TABLE goravel_user (
 	}
 }
 
-func (r Tables) createAddressTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) addresses() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE addresses (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -803,7 +863,7 @@ CREATE TABLE addresses (
   KEY idx_addresses_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE addresses (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -814,7 +874,7 @@ CREATE TABLE addresses (
   updated_at timestamp NOT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE addresses (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -825,7 +885,7 @@ CREATE TABLE addresses (
   updated_at datetime NOT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE addresses (
   id bigint NOT NULL IDENTITY(1,1),
@@ -842,9 +902,9 @@ CREATE TABLE addresses (
 	}
 }
 
-func (r Tables) createBookTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) books() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE books (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -857,7 +917,7 @@ CREATE TABLE books (
   KEY idx_books_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE books (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -867,7 +927,7 @@ CREATE TABLE books (
   updated_at timestamp NOT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE books (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -877,7 +937,7 @@ CREATE TABLE books (
   updated_at datetime NOT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE books (
   id bigint NOT NULL IDENTITY(1,1),
@@ -893,9 +953,9 @@ CREATE TABLE books (
 	}
 }
 
-func (r Tables) createAuthorTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) authors() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE authors (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -908,7 +968,7 @@ CREATE TABLE authors (
   KEY idx_books_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE authors (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -918,7 +978,7 @@ CREATE TABLE authors (
   updated_at timestamp NOT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE authors (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -928,7 +988,7 @@ CREATE TABLE authors (
   updated_at datetime NOT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE authors (
   id bigint NOT NULL IDENTITY(1,1),
@@ -944,9 +1004,9 @@ CREATE TABLE authors (
 	}
 }
 
-func (r Tables) createRoleTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) roles() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE roles (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -958,7 +1018,7 @@ CREATE TABLE roles (
   KEY idx_roles_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE roles (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -967,7 +1027,7 @@ CREATE TABLE roles (
   updated_at timestamp NOT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE roles (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -976,7 +1036,7 @@ CREATE TABLE roles (
   updated_at datetime NOT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE roles (
   id bigint NOT NULL IDENTITY(1,1),
@@ -991,9 +1051,9 @@ CREATE TABLE roles (
 	}
 }
 
-func (r Tables) createHouseTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) houses() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE houses (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -1007,7 +1067,7 @@ CREATE TABLE houses (
   KEY idx_houses_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE houses (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -1018,7 +1078,7 @@ CREATE TABLE houses (
   updated_at timestamp NOT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE houses (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -1029,7 +1089,7 @@ CREATE TABLE houses (
   updated_at datetime NOT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE houses (
   id bigint NOT NULL IDENTITY(1,1),
@@ -1046,9 +1106,9 @@ CREATE TABLE houses (
 	}
 }
 
-func (r Tables) createPhoneTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) phones() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE phones (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -1062,7 +1122,7 @@ CREATE TABLE phones (
   KEY idx_phones_updated_at (updated_at)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE phones (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -1073,7 +1133,7 @@ CREATE TABLE phones (
   updated_at timestamp NOT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE phones (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -1084,7 +1144,7 @@ CREATE TABLE phones (
   updated_at datetime NOT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE phones (
   id bigint NOT NULL IDENTITY(1,1),
@@ -1101,9 +1161,9 @@ CREATE TABLE phones (
 	}
 }
 
-func (r Tables) createRoleUserTable(driver orm.Driver) string {
-	switch driver {
-	case orm.DriverMysql:
+func (r *testTables) roleUser() string {
+	switch r.driver {
+	case contractsdatabase.DriverMysql:
 		return `
 CREATE TABLE role_user (
   id bigint(20) unsigned NOT NULL AUTO_INCREMENT,
@@ -1112,7 +1172,7 @@ CREATE TABLE role_user (
   PRIMARY KEY (id)
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4;
 `
-	case orm.DriverPostgres:
+	case contractsdatabase.DriverPostgres:
 		return `
 CREATE TABLE role_user (
   id SERIAL PRIMARY KEY NOT NULL,
@@ -1120,7 +1180,7 @@ CREATE TABLE role_user (
   user_id int NOT NULL
 );
 `
-	case orm.DriverSqlite:
+	case contractsdatabase.DriverSqlite:
 		return `
 CREATE TABLE role_user (
   id integer PRIMARY KEY AUTOINCREMENT NOT NULL,
@@ -1128,7 +1188,7 @@ CREATE TABLE role_user (
   user_id int NOT NULL
 );
 `
-	case orm.DriverSqlserver:
+	case contractsdatabase.DriverSqlserver:
 		return `
 CREATE TABLE role_user (
   id bigint NOT NULL IDENTITY(1,1),

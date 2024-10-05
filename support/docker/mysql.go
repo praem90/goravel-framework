@@ -7,7 +7,7 @@ import (
 	"gorm.io/driver/mysql"
 	gormio "gorm.io/gorm"
 
-	"github.com/goravel/framework/contracts/database/orm"
+	"github.com/goravel/framework/contracts/database"
 	"github.com/goravel/framework/contracts/testing"
 )
 
@@ -75,13 +75,17 @@ func (receiver *MysqlImpl) Config() testing.DatabaseConfig {
 	}
 }
 
+func (receiver *MysqlImpl) Driver() database.Driver {
+	return database.DriverMysql
+}
+
 func (receiver *MysqlImpl) Fresh() error {
 	instance, err := receiver.connect()
 	if err != nil {
 		return fmt.Errorf("connect Mysql error when clearing: %v", err)
 	}
 
-	res := instance.Raw("select concat('drop table ',table_name,';') from information_schema.TABLES where table_schema=?;", database)
+	res := instance.Raw("select concat('drop table ',table_name,';') from information_schema.TABLES where table_schema=?;", testDatabase)
 	if res.Error != nil {
 		return fmt.Errorf("get tables of Mysql error: %v", res.Error)
 	}
@@ -104,10 +108,6 @@ func (receiver *MysqlImpl) Fresh() error {
 
 func (receiver *MysqlImpl) Image(image testing.Image) {
 	receiver.image = &image
-}
-
-func (receiver *MysqlImpl) Name() orm.Driver {
-	return orm.DriverMysql
 }
 
 func (receiver *MysqlImpl) Stop() error {

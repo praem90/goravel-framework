@@ -5,91 +5,105 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/pkg/errors"
-
 	"github.com/goravel/framework/contracts/config"
-	ormcontract "github.com/goravel/framework/contracts/database/orm"
-	databasegorm "github.com/goravel/framework/database/gorm"
+	contractsorm "github.com/goravel/framework/contracts/database/orm"
+	"github.com/goravel/framework/contracts/log"
+	"github.com/goravel/framework/database/gorm"
 	"github.com/goravel/framework/database/orm"
-	"github.com/goravel/framework/support/color"
 )
 
-var _ ormcontract.Orm = (*OrmImpl)(nil)
-
-type OrmImpl struct {
+type Orm struct {
 	ctx        context.Context
 	config     config.Config
 	connection string
-	query      ormcontract.Query
-	queries    map[string]ormcontract.Query
+	log        log.Log
+	query      contractsorm.Query
+	queries    map[string]contractsorm.Query
+	refresh    func(key any)
 }
 
-func NewOrmImpl(ctx context.Context, config config.Config, connection string, query ormcontract.Query) (*OrmImpl, error) {
-	return &OrmImpl{
+func NewOrm(
+	ctx context.Context,
+	config config.Config,
+	connection string,
+	query contractsorm.Query,
+	queries map[string]contractsorm.Query,
+	log log.Log,
+	refresh func(key any),
+) *Orm {
+	return &Orm{
 		ctx:        ctx,
 		config:     config,
 		connection: connection,
+		log:        log,
 		query:      query,
-		queries: map[string]ormcontract.Query{
-			connection: query,
-		},
-	}, nil
+		queries:    queries,
+		refresh:    refresh,
+	}
 }
 
-func (r *OrmImpl) Connection(name string) ormcontract.Orm {
+func BuildOrm(ctx context.Context, config config.Config, connection string, log log.Log, refresh func(key any)) (*Orm, error) {
+	query, err := gorm.BuildQuery(ctx, config, connection, log)
+	if err != nil {
+		return nil, fmt.Errorf("[Orm] Build query for %s connection error: %v", connection, err)
+	}
+
+	queries := map[string]contractsorm.Query{
+		connection: query,
+	}
+
+	return NewOrm(ctx, config, connection, query, queries, log, refresh), nil
+}
+
+func (r *Orm) Connection(name string) contractsorm.Orm {
 	if name == "" {
 		name = r.config.GetString("database.default")
 	}
 	if instance, exist := r.queries[name]; exist {
-		return &OrmImpl{
-			ctx:        r.ctx,
-			config:     r.config,
-			connection: name,
-			query:      instance,
-			queries:    r.queries,
-		}
+		return NewOrm(r.ctx, r.config, name, instance, r.queries, r.log, r.refresh)
 	}
 
-	queue, err := databasegorm.InitializeQuery(r.ctx, r.config, name)
-	if err != nil || queue == nil {
-		color.Red().Println(fmt.Sprintf("[Orm] Init %s connection error: %v", name, err))
+	query, err := gorm.BuildQuery(r.ctx, r.config, name, r.log)
+	if err != nil || query == nil {
+		r.log.Errorf("[Orm] Init %s connection error: %v", name, err)
 
-		return nil
+		return NewOrm(r.ctx, r.config, name, nil, r.queries, r.log, r.refresh)
 	}
 
-	r.queries[name] = queue
+	r.queries[name] = query
 
-	return &OrmImpl{
-		ctx:        r.ctx,
-		config:     r.config,
-		connection: name,
-		query:      queue,
-		queries:    r.queries,
-	}
+	return NewOrm(r.ctx, r.config, name, query, r.queries, r.log, r.refresh)
 }
 
-func (r *OrmImpl) DB() (*sql.DB, error) {
-	query := r.Query().(*databasegorm.QueryImpl)
+func (r *Orm) DB() (*sql.DB, error) {
+	query, ok := r.Query().(*gorm.Query)
+	if !ok {
+		return nil, fmt.Errorf("unexpected Query type %T, expected *gorm.Query", r.Query())
+	}
 
 	return query.Instance().DB()
 }
 
-func (r *OrmImpl) Query() ormcontract.Query {
+func (r *Orm) Query() contractsorm.Query {
 	return r.query
 }
 
-func (r *OrmImpl) Factory() ormcontract.Factory {
+func (r *Orm) Factory() contractsorm.Factory {
 	return NewFactoryImpl(r.Query())
 }
 
-func (r *OrmImpl) Observe(model any, observer ormcontract.Observer) {
+func (r *Orm) Observe(model any, observer contractsorm.Observer) {
 	orm.Observers = append(orm.Observers, orm.Observer{
 		Model:    model,
 		Observer: observer,
 	})
 }
 
-func (r *OrmImpl) Transaction(txFunc func(tx ormcontract.Transaction) error) error {
+func (r *Orm) Refresh() {
+	r.refresh(BindingOrm)
+}
+
+func (r *Orm) Transaction(txFunc func(tx contractsorm.Query) error) error {
 	tx, err := r.Query().Begin()
 	if err != nil {
 		return err
@@ -97,7 +111,7 @@ func (r *OrmImpl) Transaction(txFunc func(tx ormcontract.Transaction) error) err
 
 	if err := txFunc(tx); err != nil {
 		if err := tx.Rollback(); err != nil {
-			return errors.Wrapf(err, "rollback error: %v", err)
+			return fmt.Errorf("rollback error: %v", err)
 		}
 
 		return err
@@ -106,20 +120,22 @@ func (r *OrmImpl) Transaction(txFunc func(tx ormcontract.Transaction) error) err
 	}
 }
 
-func (r *OrmImpl) WithContext(ctx context.Context) ormcontract.Orm {
+func (r *Orm) WithContext(ctx context.Context) contractsorm.Orm {
 	for _, query := range r.queries {
-		query := query.(*databasegorm.QueryImpl)
-		query.SetContext(ctx)
+		if gormQuery, ok := query.(*gorm.Query); ok {
+			gormQuery.SetContext(ctx)
+		}
 	}
 
-	query := r.query.(*databasegorm.QueryImpl)
-	query.SetContext(ctx)
+	if gormQuery, ok := r.query.(*gorm.Query); ok {
+		gormQuery.SetContext(ctx)
+	}
 
-	return &OrmImpl{
+	return &Orm{
 		ctx:        ctx,
 		config:     r.config,
 		connection: r.connection,
-		query:      query,
+		query:      r.query,
 		queries:    r.queries,
 	}
 }

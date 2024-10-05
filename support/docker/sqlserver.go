@@ -7,7 +7,7 @@ import (
 	"gorm.io/driver/sqlserver"
 	gormio "gorm.io/gorm"
 
-	"github.com/goravel/framework/contracts/database/orm"
+	"github.com/goravel/framework/contracts/database"
 	"github.com/goravel/framework/contracts/testing"
 )
 
@@ -28,14 +28,11 @@ func NewSqlserverImpl(database, username, password string) *SqlserverImpl {
 		username: username,
 		password: password,
 		image: &testing.Image{
-			Repository: "mcmoe/mssqldocker",
+			Repository: "mcr.microsoft.com/mssql/server",
 			Tag:        "latest",
 			Env: []string{
 				"ACCEPT_EULA=Y",
-				"MSSQL_DB=" + database,
-				"MSSQL_USER=" + username,
-				"MSSQL_PASSWORD=" + password,
-				"SA_PASSWORD=" + password,
+				"MSSQL_SA_PASSWORD=" + password,
 			},
 			ExposedPorts: []string{"1433"},
 		},
@@ -72,6 +69,10 @@ func (receiver *SqlserverImpl) Config() testing.DatabaseConfig {
 	}
 }
 
+func (receiver *SqlserverImpl) Driver() database.Driver {
+	return database.DriverSqlserver
+}
+
 func (receiver *SqlserverImpl) Fresh() error {
 	instance, err := receiver.connect()
 	if err != nil {
@@ -103,10 +104,6 @@ func (receiver *SqlserverImpl) Image(image testing.Image) {
 	receiver.image = &image
 }
 
-func (receiver *SqlserverImpl) Name() orm.Driver {
-	return orm.DriverSqlserver
-}
-
 func (receiver *SqlserverImpl) Stop() error {
 	if _, err := run(fmt.Sprintf("docker stop %s", receiver.containerID)); err != nil {
 		return fmt.Errorf("stop Sqlserver error: %v", err)
@@ -122,13 +119,47 @@ func (receiver *SqlserverImpl) connect() (*gormio.DB, error) {
 	)
 
 	// docker compose need time to start
-	for i := 0; i < 60; i++ {
+	for i := 0; i < 100; i++ {
 		instance, err = gormio.Open(sqlserver.New(sqlserver.Config{
-			DSN: fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
-				receiver.username, receiver.password, receiver.host, receiver.port, receiver.database),
+			DSN: fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=master",
+				"sa", receiver.password, receiver.host, receiver.port),
 		}))
 
 		if err == nil {
+			// Check if database exists
+			var exists bool
+			query := fmt.Sprintf("SELECT CASE WHEN EXISTS (SELECT * FROM sys.databases WHERE name = '%s') THEN CAST(1 AS BIT) ELSE CAST(0 AS BIT) END", receiver.database)
+			if err := instance.Raw(query).Scan(&exists).Error; err != nil {
+				return nil, err
+			}
+
+			if !exists {
+				// Create User database
+				if err := instance.Exec(fmt.Sprintf("CREATE DATABASE %s", receiver.database)).Error; err != nil {
+					return nil, err
+				}
+
+				// Create User account
+				if err := instance.Exec(fmt.Sprintf("CREATE LOGIN %s WITH PASSWORD = '%s'", receiver.username, receiver.password)).Error; err != nil {
+					return nil, err
+				}
+
+				// Create DB account for User
+				if err := instance.Exec(fmt.Sprintf("USE %s; CREATE USER %s FOR LOGIN %s", receiver.database, receiver.username, receiver.username)).Error; err != nil {
+					return nil, err
+				}
+
+				// Add permission
+				if err := instance.Exec(fmt.Sprintf("USE %s; ALTER ROLE db_owner ADD MEMBER %s", receiver.database, receiver.username)).Error; err != nil {
+					return nil, err
+				}
+			}
+
+			instance, err = gormio.Open(sqlserver.New(sqlserver.Config{
+				DSN: fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s",
+					receiver.username, receiver.password, receiver.host, receiver.port, receiver.database),
+			}))
+
 			break
 		}
 

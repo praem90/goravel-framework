@@ -39,7 +39,7 @@ var testEventModel = TestEventModel{
 	ManageAt: testNow,
 	high:     1,
 }
-var testQuery = &QueryImpl{
+var testQuery = &Query{
 	instance: &gorm.DB{
 		Statement: &gorm.Statement{
 			Selects: []string{},
@@ -83,8 +83,9 @@ func (s *EventTestSuite) SetupTest() {
 }
 
 func (s *EventTestSuite) TestSetAttribute() {
+	// dest is map
 	dest := map[string]any{"avatar": "avatar1"}
-	query := &QueryImpl{
+	query := &Query{
 		instance: &gorm.DB{
 			Statement: &gorm.Statement{
 				Selects: []string{},
@@ -104,6 +105,34 @@ func (s *EventTestSuite) TestSetAttribute() {
 
 	event.SetAttribute("Avatar", "avatar2")
 	avatar := event.GetAttribute("Avatar")
+	s.Equal("avatar2", avatar)
+	avatar = event.GetAttribute("avatar")
+	s.Equal("avatar2", avatar)
+
+	// dest is struct
+	dest1 := &TestEventModel{
+		Avatar: "avatar1",
+	}
+	query1 := &Query{
+		instance: &gorm.DB{
+			Statement: &gorm.Statement{
+				Selects: []string{},
+				Omits:   []string{},
+				Dest:    dest1,
+			},
+		},
+	}
+
+	event = NewEvent(query1, &testEventModel, dest1)
+
+	event.SetAttribute("Name", "name1")
+	name = event.GetAttribute("Name")
+	s.Equal(name, "name1")
+	name = event.GetAttribute("name")
+	s.Equal(name, "name1")
+
+	event.SetAttribute("Avatar", "avatar2")
+	avatar = event.GetAttribute("Avatar")
 	s.Equal("avatar2", avatar)
 	avatar = event.GetAttribute("avatar")
 	s.Equal("avatar2", avatar)
@@ -213,7 +242,7 @@ func (s *EventTestSuite) TestValidColumn() {
 		s.True(event.validColumn("manage"))
 		s.False(event.validColumn("age"))
 
-		event.query = &QueryImpl{
+		event.query = &Query{
 			instance: &gorm.DB{
 				Statement: &gorm.Statement{
 					Selects: []string{"name"},
@@ -226,7 +255,7 @@ func (s *EventTestSuite) TestValidColumn() {
 		s.False(event.validColumn("avatar"))
 		s.False(event.validColumn("Avatar"))
 
-		event.query = &QueryImpl{
+		event.query = &Query{
 			instance: &gorm.DB{
 				Statement: &gorm.Statement{
 					Selects: []string{},
@@ -304,7 +333,7 @@ func (s *EventTestSuite) TestColumnNames() {
 			"admin_at":   "admin_at",
 			"ManageAt":   "manage_at",
 			"manage_at":  "manage_at",
-		}, event.ColumnNames())
+		}, event.getColumnNames())
 	}
 }
 

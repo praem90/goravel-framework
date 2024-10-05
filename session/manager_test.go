@@ -9,6 +9,7 @@ import (
 
 	"github.com/goravel/framework/contracts/foundation"
 	sessioncontract "github.com/goravel/framework/contracts/session"
+	"github.com/goravel/framework/errors"
 	"github.com/goravel/framework/foundation/json"
 	mockconfig "github.com/goravel/framework/mocks/config"
 	"github.com/goravel/framework/support/str"
@@ -66,14 +67,15 @@ func (s *ManagerTestSuite) TestDriver() {
 	s.mockConfig.On("GetString", "session.driver").Return("not_supported").Once()
 	driver, err = s.manager.Driver()
 	s.NotNil(err)
-	s.Equal("driver [not_supported] not supported", err.Error())
+	s.ErrorIs(err, errors.ErrSessionDriverNotSupported)
+	s.Equal(errors.ErrSessionDriverNotSupported.Args("not_supported").Error(), err.Error())
 	s.Nil(driver)
 
 	// driver is not set
 	s.mockConfig.On("GetString", "session.driver").Return("").Once()
 	driver, err = s.manager.Driver()
 	s.NotNil(err)
-	s.Equal("driver is not set", err.Error())
+	s.ErrorIs(err, errors.ErrSessionDriverIsNotSet)
 	s.Nil(driver)
 }
 
@@ -85,6 +87,11 @@ func (s *ManagerTestSuite) TestExtend() {
 	s.Nil(err)
 	s.NotNil(driver)
 	s.Equal("*session.CustomDriver", fmt.Sprintf("%T", driver))
+
+	// driver already exists
+	err = s.manager.Extend("test", NewCustomDriver)
+	s.ErrorIs(err, errors.ErrSessionDriverAlreadyExists)
+	s.EqualError(err, errors.ErrSessionDriverAlreadyExists.Args("test").Error())
 }
 
 func (s *ManagerTestSuite) TestBuildSession() {
@@ -94,9 +101,23 @@ func (s *ManagerTestSuite) TestBuildSession() {
 	s.Equal("*driver.File", fmt.Sprintf("%T", driver))
 
 	s.mockConfig.On("GetString", "session.cookie").Return("test_cookie").Once()
-	session := s.manager.BuildSession(driver)
+	session, err := s.manager.BuildSession(driver)
+	s.Nil(err)
 	s.NotNil(session)
+
+	session.Put("name", "goravel")
+
 	s.Equal("test_cookie", session.GetName())
+	s.Equal("goravel", session.Get("name"))
+
+	s.manager.ReleaseSession(session)
+	s.Empty(session.GetName())
+	s.Empty(session.All())
+
+	// driver is nil
+	session, err = s.manager.BuildSession(nil)
+	s.ErrorIs(err, errors.ErrSessionDriverIsNotSet)
+	s.Nil(session)
 }
 
 func (s *ManagerTestSuite) TestGetDefaultDriver() {

@@ -1,7 +1,6 @@
 package session
 
 import (
-	"errors"
 	"strings"
 	"testing"
 
@@ -9,6 +8,7 @@ import (
 	"github.com/stretchr/testify/suite"
 
 	"github.com/goravel/framework/contracts/foundation"
+	"github.com/goravel/framework/errors"
 	"github.com/goravel/framework/foundation/json"
 	mocksession "github.com/goravel/framework/mocks/session"
 	"github.com/goravel/framework/support/str"
@@ -160,6 +160,13 @@ func (s *SessionTestSuite) TestMigrate() {
 
 	oldID = s.session.GetID()
 	s.driver.On("Destroy", oldID).Return(nil).Once()
+	s.Nil(s.session.migrate(true))
+	s.NotEqual(oldID, s.session.GetID())
+
+	// when driver is nil
+	oldID = s.session.GetID()
+	s.driver.On("Destroy", oldID).Return(nil).Once()
+	s.session.SetDriver(nil)
 	s.Nil(s.session.migrate(true))
 	s.NotEqual(oldID, s.session.GetID())
 }

@@ -3,6 +3,8 @@ package orm
 import (
 	"context"
 	"database/sql"
+
+	"github.com/goravel/framework/contracts/database"
 )
 
 type Orm interface {
@@ -16,27 +18,21 @@ type Orm interface {
 	Factory() Factory
 	// Observe registers an observer with the Orm.
 	Observe(model any, observer Observer)
+	// Refresh resets the Orm instance.
+	Refresh()
 	// Transaction runs a callback wrapped in a database transaction.
-	Transaction(txFunc func(tx Transaction) error) error
+	Transaction(txFunc func(tx Query) error) error
 	// WithContext sets the context to be used by the Orm.
 	WithContext(ctx context.Context) Orm
-}
-
-type Transaction interface {
-	Query
-	// Commit commits the changes in a transaction.
-	Commit() error
-	// Rollback rolls back the changes in a transaction.
-	Rollback() error
 }
 
 type Query interface {
 	// Association gets an association instance by name.
 	Association(association string) Association
 	// Begin begins a new transaction
-	Begin() (Transaction, error)
-	// Driver gets the driver for the query.
-	Driver() Driver
+	Begin() (Query, error)
+	// Commit commits the changes in a transaction.
+	Commit() error
 	// Count retrieve the "count" result of the query.
 	Count(count *int64) error
 	// Create inserts new record into the database.
@@ -44,9 +40,11 @@ type Query interface {
 	// Cursor returns a cursor, use scan to iterate over the returned rows.
 	Cursor() (chan Cursor, error)
 	// Delete deletes records matching given conditions, if the conditions are empty will delete all records.
-	Delete(value any, conds ...any) (*Result, error)
+	Delete(value ...any) (*Result, error)
 	// Distinct specifies distinct fields to query.
 	Distinct(args ...any) Query
+	// Driver gets the driver for the query.
+	Driver() database.Driver
 	// Exec executes raw sql
 	Exec(sql string, values ...any) (*Result, error)
 	// Exists returns true if matching records exist; otherwise, it returns false.
@@ -69,7 +67,7 @@ type Query interface {
 	// return a new instance of the model initialized with those attributes.
 	FirstOrNew(dest any, attributes any, values ...any) error
 	// ForceDelete forces delete records matching given conditions.
-	ForceDelete(value any, conds ...any) (*Result, error)
+	ForceDelete(value ...any) (*Result, error)
 	// Get retrieves all rows from the database.
 	Get(dest any) error
 	// Group specifies the group method on the query.
@@ -118,6 +116,8 @@ type Query interface {
 	Pluck(column string, dest any) error
 	// Raw creates a raw query.
 	Raw(sql string, values ...any) Query
+	// Rollback rolls back the changes in a transaction.
+	Rollback() error
 	// Save updates value in a database
 	Save(value any) error
 	// SaveQuietly updates value in a database without firing events
@@ -197,9 +197,10 @@ type Result struct {
 type ToSql interface {
 	Count() string
 	Create(value any) string
-	Delete(value any, conds ...any) string
+	Delete(value ...any) string
 	Find(dest any, conds ...any) string
 	First(dest any) string
+	ForceDelete(value ...any) string
 	Get(dest any) string
 	Pluck(column string, dest any) string
 	Save(value any) string

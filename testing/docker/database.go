@@ -1,119 +1,68 @@
 package docker
 
 import (
-	"context"
 	"fmt"
-	"time"
 
 	contractsconfig "github.com/goravel/framework/contracts/config"
-	"github.com/goravel/framework/contracts/database/gorm"
+	contractsconsole "github.com/goravel/framework/contracts/console"
 	contractsorm "github.com/goravel/framework/contracts/database/orm"
 	"github.com/goravel/framework/contracts/database/seeder"
 	"github.com/goravel/framework/contracts/foundation"
 	"github.com/goravel/framework/contracts/testing"
-	frameworkdatabase "github.com/goravel/framework/database"
 	supportdocker "github.com/goravel/framework/support/docker"
 )
 
 type Database struct {
-	app            foundation.Application
-	config         contractsconfig.Config
-	connection     string
-	driver         testing.DatabaseDriver
-	gormInitialize gorm.Initialize
-	image          *testing.Image
+	testing.DatabaseDriver
+	artisan    contractsconsole.Artisan
+	config     contractsconfig.Config
+	connection string
+	orm        contractsorm.Orm
 }
 
-func NewDatabase(app foundation.Application, connection string, gormInitialize gorm.Initialize) (*Database, error) {
+func NewDatabase(app foundation.Application, connection string) (*Database, error) {
 	config := app.MakeConfig()
+	if config == nil {
+		return nil, ErrConfigNotSet
+	}
 
 	if connection == "" {
 		connection = config.GetString("database.default")
 	}
+
+	artisanFacade := app.MakeArtisan()
+	if artisanFacade == nil {
+		return nil, ErrArtisanNotSet
+	}
+
 	driver := config.GetString(fmt.Sprintf("database.connections.%s.driver", connection))
 	database := config.GetString(fmt.Sprintf("database.connections.%s.database", connection))
 	username := config.GetString(fmt.Sprintf("database.connections.%s.username", connection))
 	password := config.GetString(fmt.Sprintf("database.connections.%s.password", connection))
-
-	var databaseDriver testing.DatabaseDriver
-	switch contractsorm.Driver(driver) {
-	case contractsorm.DriverMysql:
-		databaseDriver = supportdocker.NewMysqlImpl(database, username, password)
-	case contractsorm.DriverPostgres:
-		databaseDriver = supportdocker.NewPostgresImpl(database, username, password)
-	case contractsorm.DriverSqlserver:
-		databaseDriver = supportdocker.NewSqlserverImpl(database, username, password)
-	case contractsorm.DriverSqlite:
-		databaseDriver = supportdocker.NewSqliteImpl(database)
-	default:
-		return nil, fmt.Errorf("not found database connection: %s", connection)
-	}
+	databaseDriver := supportdocker.DatabaseDriver(supportdocker.ContainerType(driver), database, username, password)
 
 	return &Database{
-		app:            app,
+		DatabaseDriver: databaseDriver,
+		artisan:        artisanFacade,
 		config:         config,
 		connection:     connection,
-		driver:         databaseDriver,
-		gormInitialize: gormInitialize,
+		orm:            app.MakeOrm(),
 	}, nil
 }
 
-func (receiver *Database) Build() error {
-	if receiver.image != nil {
-		receiver.driver.Image(*receiver.image)
-	}
-
-	if err := receiver.driver.Build(); err != nil {
+func (r *Database) Build() error {
+	if err := r.DatabaseDriver.Build(); err != nil {
 		return err
 	}
 
-	config := receiver.driver.Config()
-	receiver.config.Add(fmt.Sprintf("database.connections.%s.port", receiver.connection), config.Port)
-
-	var query contractsorm.Query
-	for i := 0; i < 60; i++ {
-		query1, err := receiver.gormInitialize.InitializeQuery(context.Background(), receiver.config, receiver.driver.Name().String())
-		if err == nil {
-			query = query1
-			break
-		}
-
-		time.Sleep(2 * time.Second)
-	}
-	if query == nil {
-		return fmt.Errorf("connect to %s failed", receiver.driver.Name().String())
-	}
-
-	receiver.app.MakeArtisan().Call("migrate")
-	receiver.app.Singleton(frameworkdatabase.BindingOrm, func(app foundation.Application) (any, error) {
-		config := app.MakeConfig()
-		defaultConnection := config.GetString("database.default")
-
-		orm, err := frameworkdatabase.InitializeOrm(context.Background(), config, defaultConnection)
-		if err != nil {
-			return nil, fmt.Errorf("[Orm] Init %s connection error: %v", defaultConnection, err)
-		}
-
-		return orm, nil
-	})
+	r.config.Add(fmt.Sprintf("database.connections.%s.port", r.connection), r.DatabaseDriver.Config().Port)
+	r.artisan.Call("migrate")
+	r.orm.Refresh()
 
 	return nil
 }
 
-func (receiver *Database) Config() testing.DatabaseConfig {
-	return receiver.driver.Config()
-}
-
-// Deprecated: Use Stop instead.
-func (receiver *Database) Clear() error {
-	return receiver.Stop()
-}
-
-func (receiver *Database) Image(image testing.Image) {
-	receiver.image = &image
-}
-
-func (receiver *Database) Seed(seeds ...seeder.Seeder) {
+func (r *Database) Seed(seeds ...seeder.Seeder) {
 	command := "db:seed"
 	if len(seeds) > 0 {
 		command += " --seeder"
@@ -122,9 +71,5 @@ func (receiver *Database) Seed(seeds ...seeder.Seeder) {
 		}
 	}
 
-	receiver.app.MakeArtisan().Call(command)
-}
-
-func (receiver *Database) Stop() error {
-	return receiver.driver.Stop()
+	r.artisan.Call(command)
 }

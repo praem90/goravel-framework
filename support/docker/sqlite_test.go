@@ -5,7 +5,7 @@ import (
 
 	"github.com/stretchr/testify/suite"
 
-	"github.com/goravel/framework/contracts/database/orm"
+	"github.com/goravel/framework/contracts/database"
 	contractstesting "github.com/goravel/framework/contracts/testing"
 	configmocks "github.com/goravel/framework/mocks/config"
 	"github.com/goravel/framework/support/env"
@@ -18,7 +18,7 @@ type SqliteTestSuite struct {
 }
 
 func TestSqliteTestSuite(t *testing.T) {
-	if env.IsWindows() {
+	if env.IsWindows() || TestModel == TestModelNormal {
 		t.Skip("Skipping tests of using docker")
 	}
 
@@ -36,7 +36,7 @@ func (s *SqliteTestSuite) TestBuild() {
 	s.Nil(err)
 	s.NotNil(instance)
 
-	s.Equal("goravel", s.sqlite.Config().Database)
+	s.Equal(testDatabase, s.sqlite.Config().Database)
 
 	res := instance.Exec(`
 CREATE TABLE users (
@@ -70,14 +70,14 @@ INSERT INTO users (name) VALUES ('goravel');
 	s.Nil(s.sqlite.Stop())
 }
 
+func (s *SqliteTestSuite) TestDriver() {
+	s.Equal(database.DriverSqlite, s.sqlite.Driver())
+}
+
 func (s *SqliteTestSuite) TestImage() {
 	image := contractstesting.Image{
 		Repository: "sqlite",
 	}
 	s.sqlite.Image(image)
 	s.Equal(&image, s.sqlite.image)
-}
-
-func (s *SqliteTestSuite) TestName() {
-	s.Equal(orm.DriverSqlite, s.sqlite.Name())
 }

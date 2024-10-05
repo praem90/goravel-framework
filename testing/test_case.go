@@ -18,9 +18,17 @@ func (receiver *TestCase) Seed(seeds ...seeder.Seeder) {
 		}
 	}
 
-	artisanFacades.Call(command)
+	if artisanFacade == nil {
+		panic("Artisan facade is not initialized")
+	}
+
+	artisanFacade.Call(command)
 }
 
 func (receiver *TestCase) RefreshDatabase(seeds ...seeder.Seeder) {
-	artisanFacades.Call("migrate:refresh")
+	if artisanFacade == nil {
+		panic("Artisan facade is not initialized")
+	}
+
+	artisanFacade.Call("migrate:refresh")
 }

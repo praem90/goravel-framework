@@ -1,22 +1,17 @@
 package docker
 
 import (
-	"context"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/suite"
 
-	contractsorm "github.com/goravel/framework/contracts/database/orm"
-	contractstesting "github.com/goravel/framework/contracts/testing"
-	frameworkdatabase "github.com/goravel/framework/database"
-	"github.com/goravel/framework/database/gorm"
-	configmocks "github.com/goravel/framework/mocks/config"
-	consolemocks "github.com/goravel/framework/mocks/console"
-	gormmocks "github.com/goravel/framework/mocks/database/gorm"
-	foundationmocks "github.com/goravel/framework/mocks/foundation"
+	contractsdatabase "github.com/goravel/framework/contracts/database"
+	mocksconfig "github.com/goravel/framework/mocks/config"
+	mocksconsole "github.com/goravel/framework/mocks/console"
+	mocksorm "github.com/goravel/framework/mocks/database/orm"
+	mocksfoundation "github.com/goravel/framework/mocks/foundation"
 	supportdocker "github.com/goravel/framework/support/docker"
 	"github.com/goravel/framework/support/env"
 )
@@ -24,24 +19,25 @@ import (
 var (
 	testDatabase = "goravel"
 	testUsername = "goravel"
-	testPassword = "Goravel123"
+	testPassword = "Framework!123"
 )
 
 func TestNewDatabase(t *testing.T) {
 	var (
-		mockApp            *foundationmocks.Application
-		mockConfig         *configmocks.Config
-		mockGormInitialize *gormmocks.Initialize
-		database           = "goravel"
-		username           = "goravel"
-		password           = "Goravel123"
+		mockApp     *mocksfoundation.Application
+		mockArtisan *mocksconsole.Artisan
+		mockConfig  *mocksconfig.Config
+		mockOrm     *mocksorm.Orm
 	)
 
 	beforeEach := func() {
-		mockConfig = &configmocks.Config{}
-		mockApp = &foundationmocks.Application{}
-		mockApp.On("MakeConfig").Return(mockConfig).Once()
-		mockGormInitialize = &gormmocks.Initialize{}
+		mockApp = mocksfoundation.NewApplication(t)
+		mockArtisan = mocksconsole.NewArtisan(t)
+		mockConfig = mocksconfig.NewConfig(t)
+		mockOrm = mocksorm.NewOrm(t)
+		mockApp.EXPECT().MakeArtisan().Return(mockArtisan).Once()
+		mockApp.EXPECT().MakeConfig().Return(mockConfig).Once()
+		mockApp.EXPECT().MakeOrm().Return(mockOrm).Once()
 	}
 
 	tests := []struct {
@@ -54,19 +50,19 @@ func TestNewDatabase(t *testing.T) {
 		{
 			name: "success when connection is empty",
 			setup: func() {
-				mockConfig.On("GetString", "database.default").Return("mysql").Once()
-				mockConfig.On("GetString", "database.connections.mysql.driver").Return(contractsorm.DriverMysql.String()).Once()
-				mockConfig.On("GetString", "database.connections.mysql.database").Return(database).Once()
-				mockConfig.On("GetString", "database.connections.mysql.username").Return(username).Once()
-				mockConfig.On("GetString", "database.connections.mysql.password").Return(password).Once()
+				mockConfig.EXPECT().GetString("database.default").Return("mysql").Once()
+				mockConfig.EXPECT().GetString("database.connections.mysql.driver").Return(contractsdatabase.DriverMysql.String()).Once()
+				mockConfig.EXPECT().GetString("database.connections.mysql.database").Return(testDatabase).Once()
+				mockConfig.EXPECT().GetString("database.connections.mysql.username").Return(testUsername).Once()
+				mockConfig.EXPECT().GetString("database.connections.mysql.password").Return(testPassword).Once()
 			},
 			wantDatabase: func() *Database {
 				return &Database{
-					app:            mockApp,
+					artisan:        mockArtisan,
 					config:         mockConfig,
 					connection:     "mysql",
-					driver:         supportdocker.NewMysqlImpl(database, username, password),
-					gormInitialize: mockGormInitialize,
+					orm:            mockOrm,
+					DatabaseDriver: supportdocker.NewMysqlImpl(testDatabase, testUsername, testPassword),
 				}
 			},
 		},
@@ -74,18 +70,18 @@ func TestNewDatabase(t *testing.T) {
 			name:       "success when connection is mysql",
 			connection: "mysql",
 			setup: func() {
-				mockConfig.On("GetString", "database.connections.mysql.driver").Return(contractsorm.DriverMysql.String()).Once()
-				mockConfig.On("GetString", "database.connections.mysql.database").Return(database).Once()
-				mockConfig.On("GetString", "database.connections.mysql.username").Return(username).Once()
-				mockConfig.On("GetString", "database.connections.mysql.password").Return(password).Once()
+				mockConfig.EXPECT().GetString("database.connections.mysql.driver").Return(contractsdatabase.DriverMysql.String()).Once()
+				mockConfig.EXPECT().GetString("database.connections.mysql.database").Return(testDatabase).Once()
+				mockConfig.EXPECT().GetString("database.connections.mysql.username").Return(testUsername).Once()
+				mockConfig.EXPECT().GetString("database.connections.mysql.password").Return(testPassword).Once()
 			},
 			wantDatabase: func() *Database {
 				return &Database{
-					app:            mockApp,
+					artisan:        mockArtisan,
 					config:         mockConfig,
 					connection:     "mysql",
-					driver:         supportdocker.NewMysqlImpl(database, username, password),
-					gormInitialize: mockGormInitialize,
+					orm:            mockOrm,
+					DatabaseDriver: supportdocker.NewMysqlImpl(testDatabase, testUsername, testPassword),
 				}
 			},
 		},
@@ -93,18 +89,18 @@ func TestNewDatabase(t *testing.T) {
 			name:       "success when connection is postgres",
 			connection: "postgres",
 			setup: func() {
-				mockConfig.On("GetString", "database.connections.postgres.driver").Return(contractsorm.DriverPostgres.String()).Once()
-				mockConfig.On("GetString", "database.connections.postgres.database").Return(database).Once()
-				mockConfig.On("GetString", "database.connections.postgres.username").Return(username).Once()
-				mockConfig.On("GetString", "database.connections.postgres.password").Return(password).Once()
+				mockConfig.EXPECT().GetString("database.connections.postgres.driver").Return(contractsdatabase.DriverPostgres.String()).Once()
+				mockConfig.EXPECT().GetString("database.connections.postgres.database").Return(testDatabase).Once()
+				mockConfig.EXPECT().GetString("database.connections.postgres.username").Return(testUsername).Once()
+				mockConfig.EXPECT().GetString("database.connections.postgres.password").Return(testPassword).Once()
 			},
 			wantDatabase: func() *Database {
 				return &Database{
-					app:            mockApp,
+					artisan:        mockArtisan,
 					config:         mockConfig,
 					connection:     "postgres",
-					driver:         supportdocker.NewPostgresImpl(database, username, password),
-					gormInitialize: mockGormInitialize,
+					orm:            mockOrm,
+					DatabaseDriver: supportdocker.NewPostgresImpl(testDatabase, testUsername, testPassword),
 				}
 			},
 		},
@@ -112,18 +108,18 @@ func TestNewDatabase(t *testing.T) {
 			name:       "success when connection is sqlserver",
 			connection: "sqlserver",
 			setup: func() {
-				mockConfig.On("GetString", "database.connections.sqlserver.driver").Return(contractsorm.DriverSqlserver.String()).Once()
-				mockConfig.On("GetString", "database.connections.sqlserver.database").Return(database).Once()
-				mockConfig.On("GetString", "database.connections.sqlserver.username").Return(username).Once()
-				mockConfig.On("GetString", "database.connections.sqlserver.password").Return(password).Once()
+				mockConfig.EXPECT().GetString("database.connections.sqlserver.driver").Return(contractsdatabase.DriverSqlserver.String()).Once()
+				mockConfig.EXPECT().GetString("database.connections.sqlserver.database").Return(testDatabase).Once()
+				mockConfig.EXPECT().GetString("database.connections.sqlserver.username").Return(testUsername).Once()
+				mockConfig.EXPECT().GetString("database.connections.sqlserver.password").Return(testPassword).Once()
 			},
 			wantDatabase: func() *Database {
 				return &Database{
-					app:            mockApp,
+					artisan:        mockArtisan,
 					config:         mockConfig,
 					connection:     "sqlserver",
-					driver:         supportdocker.NewSqlserverImpl(database, username, password),
-					gormInitialize: mockGormInitialize,
+					orm:            mockOrm,
+					DatabaseDriver: supportdocker.NewSqlserverImpl(testDatabase, testUsername, testPassword),
 				}
 			},
 		},
@@ -131,31 +127,20 @@ func TestNewDatabase(t *testing.T) {
 			name:       "success when connection is sqlite",
 			connection: "sqlite",
 			setup: func() {
-				mockConfig.On("GetString", "database.connections.sqlite.driver").Return(contractsorm.DriverSqlite.String()).Once()
-				mockConfig.On("GetString", "database.connections.sqlite.database").Return(database).Once()
-				mockConfig.On("GetString", "database.connections.sqlite.username").Return(username).Once()
-				mockConfig.On("GetString", "database.connections.sqlite.password").Return(password).Once()
+				mockConfig.EXPECT().GetString("database.connections.sqlite.driver").Return(contractsdatabase.DriverSqlite.String()).Once()
+				mockConfig.EXPECT().GetString("database.connections.sqlite.database").Return(testDatabase).Once()
+				mockConfig.EXPECT().GetString("database.connections.sqlite.username").Return(testUsername).Once()
+				mockConfig.EXPECT().GetString("database.connections.sqlite.password").Return(testPassword).Once()
 			},
 			wantDatabase: func() *Database {
 				return &Database{
-					app:            mockApp,
+					artisan:        mockArtisan,
 					config:         mockConfig,
 					connection:     "sqlite",
-					driver:         supportdocker.NewSqliteImpl(database),
-					gormInitialize: mockGormInitialize,
+					orm:            mockOrm,
+					DatabaseDriver: supportdocker.NewSqliteImpl(testDatabase),
 				}
 			},
-		},
-		{
-			name:       "error when connection is not exist",
-			connection: "mysql",
-			setup: func() {
-				mockConfig.On("GetString", "database.connections.mysql.driver").Return("").Once()
-				mockConfig.On("GetString", "database.connections.mysql.database").Return(database).Once()
-				mockConfig.On("GetString", "database.connections.mysql.username").Return(username).Once()
-				mockConfig.On("GetString", "database.connections.mysql.password").Return(password).Once()
-			},
-			wantErr: fmt.Errorf("not found database connection: %s", "mysql"),
 		},
 	}
 
@@ -163,26 +148,21 @@ func TestNewDatabase(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			beforeEach()
 			tt.setup()
-			gotDatabase, err := NewDatabase(mockApp, tt.connection, mockGormInitialize)
-			if tt.wantDatabase != nil {
-				assert.Equal(t, tt.wantDatabase(), gotDatabase)
-			}
-			assert.Equal(t, tt.wantErr, err)
+			gotDatabase, err := NewDatabase(mockApp, tt.connection)
 
-			mockApp.AssertExpectations(t)
-			mockConfig.AssertExpectations(t)
-			mockGormInitialize.AssertExpectations(t)
+			assert.Nil(t, err)
+			assert.Equal(t, tt.wantDatabase(), gotDatabase)
 		})
 	}
 }
 
 type DatabaseTestSuite struct {
 	suite.Suite
-	mockApp            *foundationmocks.Application
-	mockArtisan        *consolemocks.Artisan
-	mockConfig         *configmocks.Config
-	mockGormInitialize *gormmocks.Initialize
-	database           *Database
+	mockApp     *mocksfoundation.Application
+	mockArtisan *mocksconsole.Artisan
+	mockConfig  *mocksconfig.Config
+	mockOrm     *mocksorm.Orm
+	database    *Database
 }
 
 func TestDatabaseTestSuite(t *testing.T) {
@@ -190,16 +170,16 @@ func TestDatabaseTestSuite(t *testing.T) {
 }
 
 func (s *DatabaseTestSuite) SetupTest() {
-	s.mockApp = &foundationmocks.Application{}
-	s.mockArtisan = &consolemocks.Artisan{}
-	s.mockConfig = &configmocks.Config{}
-	s.mockGormInitialize = &gormmocks.Initialize{}
+	s.mockApp = mocksfoundation.NewApplication(s.T())
+	s.mockArtisan = mocksconsole.NewArtisan(s.T())
+	s.mockConfig = mocksconfig.NewConfig(s.T())
+	s.mockOrm = mocksorm.NewOrm(s.T())
 	s.database = &Database{
-		app:            s.mockApp,
+		artisan:        s.mockArtisan,
 		config:         s.mockConfig,
-		connection:     "mysql",
-		driver:         supportdocker.NewMysqlImpl(testDatabase, testUsername, testPassword),
-		gormInitialize: s.mockGormInitialize,
+		connection:     "postgres",
+		orm:            s.mockOrm,
+		DatabaseDriver: supportdocker.NewPostgresImpl(testDatabase, testUsername, testPassword),
 	}
 }
 
@@ -208,20 +188,13 @@ func (s *DatabaseTestSuite) TestBuild() {
 		s.T().Skip("Skipping tests of using docker")
 	}
 
-	s.mockConfig.On("Add", "database.connections.mysql.port", mock.Anything).Once()
-	s.mockGormInitialize.On("InitializeQuery", context.Background(), s.mockConfig, s.database.driver.Name().String()).Return(&gorm.QueryImpl{}, nil).Once()
-	s.mockApp.On("MakeArtisan").Return(s.mockArtisan).Once()
-	s.mockArtisan.On("Call", "migrate").Once()
-	s.mockApp.On("Singleton", frameworkdatabase.BindingOrm, mock.Anything).Once()
+	s.mockConfig.EXPECT().Add("database.connections.postgres.port", mock.Anything).Once()
+	s.mockArtisan.EXPECT().Call("migrate").Once()
+	s.mockOrm.EXPECT().Refresh().Once()
 
 	s.Nil(s.database.Build())
 	s.True(s.database.Config().Port > 0)
 	s.Nil(s.database.Stop())
-
-	s.mockConfig.AssertExpectations(s.T())
-	s.mockGormInitialize.AssertExpectations(s.T())
-	s.mockApp.AssertExpectations(s.T())
-	s.mockArtisan.AssertExpectations(s.T())
 }
 
 func (s *DatabaseTestSuite) TestConfig() {
@@ -232,30 +205,12 @@ func (s *DatabaseTestSuite) TestConfig() {
 	s.Equal(testPassword, config.Password)
 }
 
-func (s *DatabaseTestSuite) TestImage() {
-	s.database.Image(contractstesting.Image{
-		Repository: "mysql",
-	})
-	s.Equal(&contractstesting.Image{
-		Repository: "mysql",
-	}, s.database.image)
-}
-
 func (s *DatabaseTestSuite) TestSeed() {
-	mockArtisan := &consolemocks.Artisan{}
-	mockArtisan.On("Call", "db:seed").Once()
-	s.mockApp.On("MakeArtisan").Return(mockArtisan).Once()
-
+	s.mockArtisan.EXPECT().Call("db:seed").Once()
 	s.database.Seed()
 
-	mockArtisan = &consolemocks.Artisan{}
-	mockArtisan.On("Call", "db:seed --seeder mock").Once()
-	s.mockApp.On("MakeArtisan").Return(mockArtisan).Once()
-
+	s.mockArtisan.EXPECT().Call("db:seed --seeder mock").Once()
 	s.database.Seed(&MockSeeder{})
-
-	s.mockApp.AssertExpectations(s.T())
-	mockArtisan.AssertExpectations(s.T())
 }
 
 type MockSeeder struct{}

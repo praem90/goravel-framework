@@ -257,8 +257,40 @@ func (_c *Orm_Query_Call) RunAndReturn(run func() orm.Query) *Orm_Query_Call {
 	return _c
 }
 
+// Refresh provides a mock function with given fields:
+func (_m *Orm) Refresh() {
+	_m.Called()
+}
+
+// Orm_Refresh_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Refresh'
+type Orm_Refresh_Call struct {
+	*mock.Call
+}
+
+// Refresh is a helper method to define mock.On call
+func (_e *Orm_Expecter) Refresh() *Orm_Refresh_Call {
+	return &Orm_Refresh_Call{Call: _e.mock.On("Refresh")}
+}
+
+func (_c *Orm_Refresh_Call) Run(run func()) *Orm_Refresh_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run()
+	})
+	return _c
+}
+
+func (_c *Orm_Refresh_Call) Return() *Orm_Refresh_Call {
+	_c.Call.Return()
+	return _c
+}
+
+func (_c *Orm_Refresh_Call) RunAndReturn(run func()) *Orm_Refresh_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Transaction provides a mock function with given fields: txFunc
-func (_m *Orm) Transaction(txFunc func(orm.Transaction) error) error {
+func (_m *Orm) Transaction(txFunc func(orm.Query) error) error {
 	ret := _m.Called(txFunc)
 
 	if len(ret) == 0 {
@@ -266,7 +298,7 @@ func (_m *Orm) Transaction(txFunc func(orm.Transaction) error) error {
 	}
 
 	var r0 error
-	if rf, ok := ret.Get(0).(func(func(orm.Transaction) error) error); ok {
+	if rf, ok := ret.Get(0).(func(func(orm.Query) error) error); ok {
 		r0 = rf(txFunc)
 	} else {
 		r0 = ret.Error(0)
@@ -281,14 +313,14 @@ type Orm_Transaction_Call struct {
 }
 
 // Transaction is a helper method to define mock.On call
-//   - txFunc func(orm.Transaction) error
+//   - txFunc func(orm.Query) error
 func (_e *Orm_Expecter) Transaction(txFunc interface{}) *Orm_Transaction_Call {
 	return &Orm_Transaction_Call{Call: _e.mock.On("Transaction", txFunc)}
 }
 
-func (_c *Orm_Transaction_Call) Run(run func(txFunc func(orm.Transaction) error)) *Orm_Transaction_Call {
+func (_c *Orm_Transaction_Call) Run(run func(txFunc func(orm.Query) error)) *Orm_Transaction_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(func(orm.Transaction) error))
+		run(args[0].(func(orm.Query) error))
 	})
 	return _c
 }
@@ -298,7 +330,7 @@ func (_c *Orm_Transaction_Call) Return(_a0 error) *Orm_Transaction_Call {
 	return _c
 }
 
-func (_c *Orm_Transaction_Call) RunAndReturn(run func(func(orm.Transaction) error) error) *Orm_Transaction_Call {
+func (_c *Orm_Transaction_Call) RunAndReturn(run func(func(orm.Query) error) error) *Orm_Transaction_Call {
 	_c.Call.Return(run)
 	return _c
 }
