@@ -18,9 +18,10 @@ type ServiceProvider struct {
 
 func (database *ServiceProvider) Register(app foundation.Application) {
 	app.BindWith(BindingAuth, func(app foundation.Application, parameters map[string]any) (any, error) {
-		config := app.MakeConfig()
-		return NewAuth(config.GetString("auth.defaults.guard"),
-			app.MakeCache(), config, parameters["ctx"].(http.Context), app.MakeOrm()), nil
+        authManger := NewAuthManager(app, parameters["ctx"].(http.Context))
+        authManger.Extend("jwt", NewJwtGuard)
+
+        return authManger, nil
 	})
 	app.Singleton(BindingGate, func(app foundation.Application) (any, error) {
 		return access.NewGate(context.Background()), nil
