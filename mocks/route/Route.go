@@ -719,65 +719,6 @@ func (_c *Route_ServeHTTP_Call) RunAndReturn(run func(nethttp.ResponseWriter, *n
 	return _c
 }
 
-// Shutdown provides a mock function with given fields: ctx
-func (_m *Route) Shutdown(ctx ...context.Context) error {
-	_va := make([]interface{}, len(ctx))
-	for _i := range ctx {
-		_va[_i] = ctx[_i]
-	}
-	var _ca []interface{}
-	_ca = append(_ca, _va...)
-	ret := _m.Called(_ca...)
-
-	if len(ret) == 0 {
-		panic("no return value specified for Shutdown")
-	}
-
-	var r0 error
-	if rf, ok := ret.Get(0).(func(...context.Context) error); ok {
-		r0 = rf(ctx...)
-	} else {
-		r0 = ret.Error(0)
-	}
-
-	return r0
-}
-
-// Route_Shutdown_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Shutdown'
-type Route_Shutdown_Call struct {
-	*mock.Call
-}
-
-// Shutdown is a helper method to define mock.On call
-//   - ctx ...context.Context
-func (_e *Route_Expecter) Shutdown(ctx ...interface{}) *Route_Shutdown_Call {
-	return &Route_Shutdown_Call{Call: _e.mock.On("Shutdown",
-		append([]interface{}{}, ctx...)...)}
-}
-
-func (_c *Route_Shutdown_Call) Run(run func(ctx ...context.Context)) *Route_Shutdown_Call {
-	_c.Call.Run(func(args mock.Arguments) {
-		variadicArgs := make([]context.Context, len(args)-0)
-		for i, a := range args[0:] {
-			if a != nil {
-				variadicArgs[i] = a.(context.Context)
-			}
-		}
-		run(variadicArgs...)
-	})
-	return _c
-}
-
-func (_c *Route_Shutdown_Call) Return(_a0 error) *Route_Shutdown_Call {
-	_c.Call.Return(_a0)
-	return _c
-}
-
-func (_c *Route_Shutdown_Call) RunAndReturn(run func(...context.Context) error) *Route_Shutdown_Call {
-	_c.Call.Return(run)
-	return _c
-}
-
 // Static provides a mock function with given fields: relativePath, root
 func (_m *Route) Static(relativePath string, root string) {
 	_m.Called(relativePath, root)
@@ -935,6 +876,64 @@ func (_c *Route_Stop_Call) Return(_a0 error) *Route_Stop_Call {
 }
 
 func (_c *Route_Stop_Call) RunAndReturn(run func(...context.Context) error) *Route_Stop_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Test provides a mock function with given fields: request
+func (_m *Route) Test(request *nethttp.Request) (*nethttp.Response, error) {
+	ret := _m.Called(request)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Test")
+	}
+
+	var r0 *nethttp.Response
+	var r1 error
+	if rf, ok := ret.Get(0).(func(*nethttp.Request) (*nethttp.Response, error)); ok {
+		return rf(request)
+	}
+	if rf, ok := ret.Get(0).(func(*nethttp.Request) *nethttp.Response); ok {
+		r0 = rf(request)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*nethttp.Response)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(*nethttp.Request) error); ok {
+		r1 = rf(request)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// Route_Test_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Test'
+type Route_Test_Call struct {
+	*mock.Call
+}
+
+// Test is a helper method to define mock.On call
+//   - request *nethttp.Request
+func (_e *Route_Expecter) Test(request interface{}) *Route_Test_Call {
+	return &Route_Test_Call{Call: _e.mock.On("Test", request)}
+}
+
+func (_c *Route_Test_Call) Run(run func(request *nethttp.Request)) *Route_Test_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(*nethttp.Request))
+	})
+	return _c
+}
+
+func (_c *Route_Test_Call) Return(_a0 *nethttp.Response, _a1 error) *Route_Test_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *Route_Test_Call) RunAndReturn(run func(*nethttp.Request) (*nethttp.Response, error)) *Route_Test_Call {
 	_c.Call.Return(run)
 	return _c
 }

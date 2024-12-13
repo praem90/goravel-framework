@@ -10,8 +10,10 @@ import (
 	"github.com/goravel/framework/contracts/http"
 )
 
-const BindingAuth = "goravel.auth"
-const BindingGate = "goravel.gate"
+const (
+	BindingAuth = "goravel.auth"
+	BindingGate = "goravel.gate"
+)
 
 type ServiceProvider struct {
 }

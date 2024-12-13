@@ -23,10 +23,10 @@ type Route interface {
 	RunTLSWithCert(host, certFile, keyFile string) error
 	// ServeHTTP serves HTTP requests.
 	ServeHTTP(writer http.ResponseWriter, request *http.Request)
-	// DEPRECATED use Stop instead.
-	Shutdown(ctx ...context.Context) error
 	// Stop gracefully stop the serve.
 	Stop(ctx ...context.Context) error
+	// Test method to simulate HTTP requests (Fiber driver only)
+	Test(request *http.Request) (*http.Response, error)
 }
 
 type Router interface {
