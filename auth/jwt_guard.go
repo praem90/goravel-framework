@@ -55,6 +55,8 @@ func (j JwtGuard) User() *any {
 
     token := request.Header("Authorization", "")
 
+    token = token[len("Bearer "):]
+
     if token == "" {
         return nil
     }

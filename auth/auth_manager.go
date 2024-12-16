@@ -34,6 +34,10 @@ func (f AuthManager) GetDefaultDriver() contractsauth.Guard {
 	return f.Guard(name)
 }
 
+func (f AuthManager) User() *any {
+    return f.GetDefaultDriver().User()
+}
+
 // SetDefaultDriver implements auth.Factory.
 func (f AuthManager) SetDefaultDriver(name string) contractsauth.Factory {
 	config := f.app.MakeConfig()
@@ -76,7 +80,7 @@ func (f AuthManager) Guard(name string) contractsauth.Guard {
 }
 
 func (f AuthManager) createUserProvider(name string) contractsauth.UserProvider {
-    return nil
+    return NewOrmUserProvider(f.app, f.app.MakeConfig())
 }
 
 func NewAuthManager(app foundation.Application, ctx http.Context) contractsauth.Factory {
