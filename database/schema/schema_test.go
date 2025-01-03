@@ -1,10 +1,14 @@
 package schema
 
 import (
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/spf13/cast"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 
 	"github.com/goravel/framework/contracts/database"
@@ -33,20 +37,20 @@ func (s *SchemaSuite) SetupTest() {
 	postgresDocker := docker.Postgres()
 	s.Require().NoError(postgresDocker.Ready())
 
-	postgresQuery := gorm.NewTestQuery(postgresDocker, true)
+	postgresQuery := gorm.NewTestQueryWithPrefixAndSingular(postgresDocker)
 
 	sqliteDocker := docker.Sqlite()
-	sqliteQuery := gorm.NewTestQuery(sqliteDocker, true)
+	sqliteQuery := gorm.NewTestQueryWithPrefixAndSingular(sqliteDocker)
 
 	mysqlDocker := docker.Mysql()
 	s.Require().NoError(mysqlDocker.Ready())
 
-	mysqlQuery := gorm.NewTestQuery(mysqlDocker, true)
+	mysqlQuery := gorm.NewTestQueryWithPrefixAndSingular(mysqlDocker)
 
 	sqlserverDocker := docker.Sqlserver()
 	s.Require().NoError(sqlserverDocker.Ready())
 
-	sqlserverQuery := gorm.NewTestQuery(sqlserverDocker, true)
+	sqlserverQuery := gorm.NewTestQueryWithPrefixAndSingular(sqlserverDocker)
 
 	s.prefix = "goravel_"
 	s.driverToTestQuery = map[database.Driver]*gorm.TestQuery{
@@ -59,7 +63,7 @@ func (s *SchemaSuite) SetupTest() {
 
 func (s *SchemaSuite) TearDownTest() {
 	if s.driverToTestQuery[database.DriverSqlite] != nil {
-		s.NoError(s.driverToTestQuery[database.DriverSqlite].Docker().Stop())
+		s.NoError(s.driverToTestQuery[database.DriverSqlite].Docker().Shutdown())
 	}
 }
 
@@ -261,6 +265,24 @@ func (s *SchemaSuite) TestColumnTypes_Postgres() {
 			s.Equal("float8", column.TypeName)
 		}
 		if column.Name == "enum" {
+			s.False(column.Autoincrement)
+			s.Empty(column.Collation)
+			s.Equal("This is a enum column", column.Comment)
+			s.Empty(column.Default)
+			s.False(column.Nullable)
+			s.Equal("character varying(255)", column.Type)
+			s.Equal("varchar", column.TypeName)
+		}
+		if column.Name == "enum" {
+			s.False(column.Autoincrement)
+			s.Empty(column.Collation)
+			s.Equal("This is a enum column", column.Comment)
+			s.Empty(column.Default)
+			s.False(column.Nullable)
+			s.Equal("character varying(255)", column.Type)
+			s.Equal("varchar", column.TypeName)
+		}
+		if column.Name == "enum_int" {
 			s.False(column.Autoincrement)
 			s.Empty(column.Collation)
 			s.Equal("This is a enum column", column.Comment)
@@ -481,6 +503,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.True(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "big_integer" {
 			s.False(column.Autoincrement)
@@ -488,6 +511,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("integer", column.Type)
+			s.Equal("integer", column.TypeName)
 		}
 		if column.Name == "char" {
 			s.False(column.Autoincrement)
@@ -495,6 +519,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("varchar", column.Type)
+			s.Equal("varchar", column.TypeName)
 		}
 		if column.Name == "created_at" {
 			s.False(column.Autoincrement)
@@ -502,6 +527,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.True(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "date" {
 			s.False(column.Autoincrement)
@@ -509,6 +535,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("date", column.Type)
+			s.Equal("date", column.TypeName)
 		}
 		if column.Name == "date_time" {
 			s.False(column.Autoincrement)
@@ -516,6 +543,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "date_time_tz" {
 			s.False(column.Autoincrement)
@@ -523,6 +551,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "decimal" {
 			s.False(column.Autoincrement)
@@ -530,6 +559,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("numeric", column.Type)
+			s.Equal("numeric", column.TypeName)
 		}
 		if column.Name == "deleted_at" {
 			s.False(column.Autoincrement)
@@ -537,6 +567,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.True(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "double" {
 			s.False(column.Autoincrement)
@@ -544,6 +575,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("double", column.Type)
+			s.Equal("double", column.TypeName)
 		}
 		if column.Name == "enum" {
 			s.False(column.Autoincrement)
@@ -551,6 +583,15 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("varchar", column.Type)
+			s.Equal("varchar", column.TypeName)
+		}
+		if column.Name == "enum_int" {
+			s.False(column.Autoincrement)
+			s.Empty(column.Comment)
+			s.Empty(column.Default)
+			s.False(column.Nullable)
+			s.Equal("varchar", column.Type)
+			s.Equal("varchar", column.TypeName)
 		}
 		if column.Name == "float" {
 			s.False(column.Autoincrement)
@@ -558,6 +599,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("float", column.Type)
+			s.Equal("float", column.TypeName)
 		}
 		if column.Name == "id" {
 			s.True(column.Autoincrement)
@@ -565,6 +607,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("integer", column.Type)
+			s.Equal("integer", column.TypeName)
 		}
 		if column.Name == "integer" {
 			s.False(column.Autoincrement)
@@ -572,6 +615,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("integer", column.Type)
+			s.Equal("integer", column.TypeName)
 		}
 		if column.Name == "integer_default" {
 			s.False(column.Autoincrement)
@@ -579,6 +623,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Equal("'1'", column.Default)
 			s.False(column.Nullable)
 			s.Equal("integer", column.Type)
+			s.Equal("integer", column.TypeName)
 		}
 		if column.Name == "json" {
 			s.False(column.Autoincrement)
@@ -586,6 +631,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("text", column.Type)
+			s.Equal("text", column.TypeName)
 		}
 		if column.Name == "jsonb" {
 			s.False(column.Autoincrement)
@@ -593,6 +639,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("text", column.Type)
+			s.Equal("text", column.TypeName)
 		}
 		if column.Name == "long_text" {
 			s.False(column.Autoincrement)
@@ -600,6 +647,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("text", column.Type)
+			s.Equal("text", column.TypeName)
 		}
 		if column.Name == "medium_text" {
 			s.False(column.Autoincrement)
@@ -607,6 +655,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("text", column.Type)
+			s.Equal("text", column.TypeName)
 		}
 		if column.Name == "string" {
 			s.False(column.Autoincrement)
@@ -614,6 +663,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("varchar", column.Type)
+			s.Equal("varchar", column.TypeName)
 		}
 		if column.Name == "string_default" {
 			s.False(column.Autoincrement)
@@ -621,6 +671,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Equal("'goravel'", column.Default)
 			s.False(column.Nullable)
 			s.Equal("varchar", column.Type)
+			s.Equal("varchar", column.TypeName)
 		}
 		if column.Name == "text" {
 			s.False(column.Autoincrement)
@@ -628,6 +679,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("text", column.Type)
+			s.Equal("text", column.TypeName)
 		}
 		if column.Name == "tiny_text" {
 			s.False(column.Autoincrement)
@@ -635,6 +687,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("text", column.Type)
+			s.Equal("text", column.TypeName)
 		}
 		if column.Name == "time" {
 			s.False(column.Autoincrement)
@@ -642,6 +695,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("time", column.Type)
+			s.Equal("time", column.TypeName)
 		}
 		if column.Name == "time_tz" {
 			s.False(column.Autoincrement)
@@ -649,6 +703,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("time", column.Type)
+			s.Equal("time", column.TypeName)
 		}
 		if column.Name == "timestamp" {
 			s.False(column.Autoincrement)
@@ -656,6 +711,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "timestamp_tz" {
 			s.False(column.Autoincrement)
@@ -663,6 +719,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "timestamp_use_current" {
 			s.False(column.Autoincrement)
@@ -670,6 +727,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Equal("CURRENT_TIMESTAMP", column.Default)
 			s.False(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "timestamp_use_current_on_update" {
 			s.False(column.Autoincrement)
@@ -677,6 +735,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Equal("CURRENT_TIMESTAMP", column.Default)
 			s.False(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "updated_at" {
 			s.False(column.Autoincrement)
@@ -684,6 +743,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.True(column.Nullable)
 			s.Equal("datetime", column.Type)
+			s.Equal("datetime", column.TypeName)
 		}
 		if column.Name == "unsigned_integer" {
 			s.False(column.Autoincrement)
@@ -691,6 +751,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("integer", column.Type)
+			s.Equal("integer", column.TypeName)
 		}
 		if column.Name == "unsigned_big_integer" {
 			s.False(column.Autoincrement)
@@ -698,6 +759,7 @@ func (s *SchemaSuite) TestColumnTypes_Sqlite() {
 			s.Empty(column.Default)
 			s.False(column.Nullable)
 			s.Equal("integer", column.Type)
+			s.Equal("integer", column.TypeName)
 		}
 	}
 }
@@ -815,6 +877,15 @@ func (s *SchemaSuite) TestColumnTypes_Mysql() {
 			s.Equal("enum('a','b','c')", column.Type)
 			s.Equal("enum", column.TypeName)
 		}
+		if column.Name == "enum_int" {
+			s.False(column.Autoincrement)
+			s.Equal("utf8mb4_0900_ai_ci", column.Collation)
+			s.Equal("This is a enum column", column.Comment)
+			s.Empty(column.Default)
+			s.False(column.Nullable)
+			s.Equal("enum('1','2','3')", column.Type)
+			s.Equal("enum", column.TypeName)
+		}
 		if column.Name == "float" {
 			s.False(column.Autoincrement)
 			s.Empty(column.Collation)
@@ -830,7 +901,7 @@ func (s *SchemaSuite) TestColumnTypes_Mysql() {
 			s.Equal("This is a id column", column.Comment)
 			s.Empty(column.Default)
 			s.False(column.Nullable)
-			s.Equal("bigint", column.Type)
+			s.Equal("bigint unsigned", column.Type)
 			s.Equal("bigint", column.TypeName)
 		}
 		if column.Name == "integer" {
@@ -992,7 +1063,7 @@ func (s *SchemaSuite) TestColumnTypes_Mysql() {
 			s.Equal("This is a unsigned_integer column", column.Comment)
 			s.Empty(column.Default)
 			s.False(column.Nullable)
-			s.Equal("int", column.Type)
+			s.Equal("int unsigned", column.Type)
 			s.Equal("int", column.TypeName)
 		}
 		if column.Name == "unsigned_big_integer" {
@@ -1001,7 +1072,7 @@ func (s *SchemaSuite) TestColumnTypes_Mysql() {
 			s.Equal("This is a unsigned_big_integer column", column.Comment)
 			s.Empty(column.Default)
 			s.False(column.Nullable)
-			s.Equal("bigint", column.Type)
+			s.Equal("bigint unsigned", column.Type)
 			s.Equal("bigint", column.TypeName)
 		}
 	}
@@ -1112,6 +1183,15 @@ func (s *SchemaSuite) TestColumnTypes_Sqlserver() {
 			s.Equal("float", column.TypeName)
 		}
 		if column.Name == "enum" {
+			s.False(column.Autoincrement)
+			s.Equal("SQL_Latin1_General_CP1_CI_AS", column.Collation)
+			s.Empty(column.Comment)
+			s.Empty(column.Default)
+			s.False(column.Nullable)
+			s.Equal("nvarchar(510)", column.Type)
+			s.Equal("nvarchar", column.TypeName)
+		}
+		if column.Name == "enum_int" {
 			s.False(column.Autoincrement)
 			s.Equal("SQL_Latin1_General_CP1_CI_AS", column.Collation)
 			s.Empty(column.Comment)
@@ -1312,6 +1392,146 @@ func (s *SchemaSuite) TestColumnTypes_Sqlserver() {
 	}
 }
 
+func (s *SchemaSuite) TestEnum_Postgres() {
+	if s.driverToTestQuery[database.DriverPostgres] == nil {
+		s.T().Skip("Skip test")
+	}
+
+	testQuery := s.driverToTestQuery[database.DriverPostgres]
+	schema := GetTestSchema(testQuery, s.driverToTestQuery)
+	table := "postgres_enum"
+
+	s.NoError(schema.Create(table, func(table contractsschema.Blueprint) {
+		table.ID()
+		table.Enum("str", []any{"a", "b", "c"})
+		table.Enum("int", []any{1, 2, 3})
+	}))
+
+	type PostgresEnum struct {
+		ID  uint `gorm:"primaryKey"`
+		Str string
+		Int string
+	}
+
+	postgresEnum := &PostgresEnum{
+		Str: "a",
+		Int: "4",
+	}
+	s.ErrorContains(testQuery.Query().Table(table).Create(&postgresEnum), `new row for relation "goravel_postgres_enum" violates check constraint "goravel_postgres_enum_int_check"`)
+
+	postgresEnum = &PostgresEnum{
+		Str: "a",
+		Int: "1",
+	}
+	s.NoError(testQuery.Query().Table(table).Create(&postgresEnum))
+	s.True(postgresEnum.ID > 0)
+}
+
+func (s *SchemaSuite) TestEnum_Sqlite() {
+	if s.driverToTestQuery[database.DriverSqlite] == nil {
+		s.T().Skip("Skip test")
+	}
+
+	testQuery := s.driverToTestQuery[database.DriverSqlite]
+	schema := GetTestSchema(testQuery, s.driverToTestQuery)
+	table := "sqlite_enum"
+
+	s.NoError(schema.Create(table, func(table contractsschema.Blueprint) {
+		table.ID()
+		table.Enum("str", []any{"a", "b", "c"})
+		table.Enum("int", []any{1, 2, 3})
+	}))
+
+	type SqliteEnum struct {
+		ID  uint `gorm:"primaryKey"`
+		Str string
+		Int string
+	}
+
+	sqliteEnum := &SqliteEnum{
+		Str: "a",
+		Int: "4",
+	}
+	s.ErrorContains(testQuery.Query().Table(table).Create(&sqliteEnum), `constraint failed: CHECK constraint failed: int`)
+
+	sqliteEnum = &SqliteEnum{
+		Str: "a",
+		Int: "1",
+	}
+	s.NoError(testQuery.Query().Table(table).Create(&sqliteEnum))
+	s.True(sqliteEnum.ID > 0)
+}
+
+func (s *SchemaSuite) TestEnum_Mysql() {
+	if s.driverToTestQuery[database.DriverMysql] == nil {
+		s.T().Skip("Skip test")
+	}
+
+	testQuery := s.driverToTestQuery[database.DriverMysql]
+	schema := GetTestSchema(testQuery, s.driverToTestQuery)
+	table := "mysql_enum"
+
+	s.NoError(schema.Create(table, func(table contractsschema.Blueprint) {
+		table.ID()
+		table.Enum("str", []any{"a", "b", "c"})
+		table.Enum("int", []any{1, 2, 3})
+	}))
+
+	type MysqlEnum struct {
+		ID  uint `gorm:"primaryKey"`
+		Str string
+		Int int
+	}
+
+	mysqlEnum := &MysqlEnum{
+		Str: "a",
+		Int: 4,
+	}
+	s.ErrorContains(testQuery.Query().Table(table).Create(&mysqlEnum), "Data truncated for column 'int' at row 1")
+
+	mysqlEnum = &MysqlEnum{
+		Str: "a",
+		Int: 1,
+	}
+	s.NoError(testQuery.Query().Table(table).Create(&mysqlEnum))
+	s.True(mysqlEnum.ID > 0)
+}
+
+func (s *SchemaSuite) TestEnum_Sqlserver() {
+	if s.driverToTestQuery[database.DriverSqlserver] == nil {
+		s.T().Skip("Skip test")
+	}
+
+	testQuery := s.driverToTestQuery[database.DriverSqlserver]
+	schema := GetTestSchema(testQuery, s.driverToTestQuery)
+	table := "sqlserver_enum"
+
+	s.NoError(schema.Create(table, func(table contractsschema.Blueprint) {
+		table.ID()
+		table.Enum("str", []any{"a", "b", "c"})
+		table.Enum("int", []any{1, 2, 3})
+	}))
+
+	type SqlserverEnum struct {
+		ID  uint `gorm:"primaryKey"`
+		Str string
+		Int string
+	}
+
+	sqlserverEnum := &SqlserverEnum{
+		Str: "a",
+		Int: "4",
+	}
+	s.ErrorContains(testQuery.Query().Table(table).Create(&sqlserverEnum), `The INSERT statement conflicted with the CHECK constraint`)
+
+	sqlserverEnum = &SqlserverEnum{
+		Str: "a",
+		Int: "1",
+	}
+	s.NoError(testQuery.Query().Table(table).Create(&sqlserverEnum))
+	s.True(sqlserverEnum.ID > 0)
+}
+
 func (s *SchemaSuite) TestForeign() {
 	for driver, testQuery := range s.driverToTestQuery {
 		s.Run(driver.String(), func() {
@@ -1338,8 +1558,8 @@ func (s *SchemaSuite) TestForeign() {
 			err = schema.Create(table3, func(table contractsschema.Blueprint) {
 				table.ID()
 				table.String("name")
-				table.BigInteger("foreign1_id")
-				table.BigInteger("foreign2_id")
+				table.UnsignedBigInteger("foreign1_id")
+				table.UnsignedBigInteger("foreign2_id")
 				table.Foreign("foreign1_id").References("id").On(table1)
 				table.Foreign("foreign2_id").References("id").On(table2).CascadeOnDelete().CascadeOnUpdate().Name("foreign3_foreign2_id_foreign")
 			})
@@ -1663,7 +1883,7 @@ func (s *SchemaSuite) TestID_Mysql() {
 					table.ID("id").Comment("This is a id column")
 				})
 			},
-			expectType:     "bigint",
+			expectType:     "bigint unsigned",
 			expectTypeName: "bigint",
 		},
 		{
@@ -1673,7 +1893,7 @@ func (s *SchemaSuite) TestID_Mysql() {
 					table.MediumIncrements("id").Comment("This is a id column")
 				})
 			},
-			expectType:     "mediumint",
+			expectType:     "mediumint unsigned",
 			expectTypeName: "mediumint",
 		},
 		{
@@ -1683,7 +1903,7 @@ func (s *SchemaSuite) TestID_Mysql() {
 					table.IntegerIncrements("id").Comment("This is a id column")
 				})
 			},
-			expectType:     "int",
+			expectType:     "int unsigned",
 			expectTypeName: "int",
 		},
 		{
@@ -1693,7 +1913,7 @@ func (s *SchemaSuite) TestID_Mysql() {
 					table.SmallIncrements("id").Comment("This is a id column")
 				})
 			},
-			expectType:     "smallint",
+			expectType:     "smallint unsigned",
 			expectTypeName: "smallint",
 		},
 		{
@@ -1703,7 +1923,7 @@ func (s *SchemaSuite) TestID_Mysql() {
 					table.TinyIncrements("id").Comment("This is a id column")
 				})
 			},
-			expectType:     "tinyint",
+			expectType:     "tinyint unsigned",
 			expectTypeName: "tinyint",
 		},
 	}
@@ -1847,6 +2067,40 @@ func (s *SchemaSuite) TestIndexMethods() {
 					}
 					s.False(index.Unique)
 				}
+				if index.Name == "name_index" {
+					s.ElementsMatch(index.Columns, []string{"name"})
+					s.False(index.Primary)
+					if driver == database.DriverSqlite {
+						s.Empty(index.Type)
+					} else if driver == database.DriverSqlserver {
+						s.Equal("nonclustered", index.Type)
+					} else {
+						s.Equal("btree", index.Type)
+					}
+					s.False(index.Unique)
+				}
+				if strings.HasPrefix(index.Name, "pk_") {
+					s.ElementsMatch(index.Columns, []string{"id"})
+					s.True(index.Primary)
+					s.Equal("clustered", index.Type)
+					s.True(index.Unique)
+				}
+				if index.Name == "primary" {
+					s.ElementsMatch(index.Columns, []string{"id"})
+					s.True(index.Primary)
+					if driver == database.DriverSqlite {
+						s.Empty(index.Type)
+					} else {
+						s.Equal("btree", index.Type)
+					}
+					s.True(index.Unique)
+				}
+				if index.Name == "goravel_indexes_pkey" {
+					s.ElementsMatch(index.Columns, []string{"id"})
+					s.True(index.Primary)
+					s.Equal("btree", index.Type)
+					s.True(index.Unique)
+				}
 			}
 
 			s.NoError(schema.Table(table, func(table contractsschema.Blueprint) {
@@ -1966,7 +2220,7 @@ func (s *SchemaSuite) TestTableMethods() {
 			s.NoError(schema.Drop(tableThree))
 			s.False(schema.HasTable(tableThree))
 
-			testQuery.MockConfig().EXPECT().GetString("database.connections.postgres.search_path").Return("").Once()
+			testQuery.MockConfig().EXPECT().GetString("database.connections.postgres.schema").Return("").Once()
 
 			s.NoError(schema.DropAllTables())
 			s.False(schema.HasTable(tableFour))
@@ -2018,11 +2272,21 @@ func (s *SchemaSuite) TestUnique() {
 				table.Unique("name", "age")
 			}))
 
-			s.Require().True(schema.HasIndex(table, "goravel_uniques_name_age_unique"))
+			s.True(schema.HasIndex(table, "goravel_uniques_name_age_unique"))
 			s.NoError(schema.Table(table, func(table contractsschema.Blueprint) {
 				table.DropUnique("name", "age")
 			}))
-			s.Require().False(schema.HasIndex(table, "goravel_uniques_name_age_unique"))
+			s.False(schema.HasIndex(table, "goravel_uniques_name_age_unique"))
+
+			s.NoError(schema.Table(table, func(table contractsschema.Blueprint) {
+				table.Unique("name", "age").Name("name_age_unique")
+			}))
+
+			s.True(schema.HasIndex(table, "name_age_unique"))
+			s.NoError(schema.Table(table, func(table contractsschema.Blueprint) {
+				table.DropUniqueByName("name_age_unique")
+			}))
+			s.False(schema.HasIndex(table, "name_age_unique"))
 		})
 	}
 }
@@ -2066,7 +2330,8 @@ func (s *SchemaSuite) createTableAndAssertColumnsForColumnMethods(schema contrac
 		table.DateTimeTz("date_time_tz", 3).Comment("This is a date time with time zone column")
 		table.Decimal("decimal").Places(1).Total(4).Comment("This is a decimal column")
 		table.Double("double").Comment("This is a double column")
-		table.Enum("enum", []string{"a", "b", "c"}).Comment("This is a enum column")
+		table.Enum("enum", []any{"a", "b", "c"}).Comment("This is a enum column")
+		table.Enum("enum_int", []any{1, 2, 3}).Comment("This is a enum column")
 		table.Float("float", 2).Comment("This is a float column")
 		table.LongText("long_text").Comment("This is a long_text column")
 		table.MediumText("medium_text").Comment("This is a medium_text column")
@@ -2099,7 +2364,7 @@ func (s *SchemaSuite) createTableAndAssertColumnsForColumnMethods(schema contrac
 
 	columnListing := schema.GetColumnListing(table)
 
-	s.Equal(32, len(columnListing))
+	s.Equal(33, len(columnListing))
 	s.Contains(columnListing, "another_deleted_at")
 	s.Contains(columnListing, "big_integer")
 	s.Contains(columnListing, "char")
@@ -2111,6 +2376,7 @@ func (s *SchemaSuite) createTableAndAssertColumnsForColumnMethods(schema contrac
 	s.Contains(columnListing, "deleted_at")
 	s.Contains(columnListing, "double")
 	s.Contains(columnListing, "enum")
+	s.Contains(columnListing, "enum_int")
 	s.Contains(columnListing, "float")
 	s.Contains(columnListing, "id")
 	s.Contains(columnListing, "integer")
@@ -2132,4 +2398,59 @@ func (s *SchemaSuite) createTableAndAssertColumnsForColumnMethods(schema contrac
 	s.Contains(columnListing, "unsigned_integer")
 	s.Contains(columnListing, "unsigned_big_integer")
 	s.Contains(columnListing, "updated_at")
+}
+
+func TestPostgresSchema(t *testing.T) {
+	if env.IsWindows() {
+		t.Skip("Skip test that using Docker")
+	}
+
+	schema := "goravel"
+	table := "table"
+	postgresDocker := docker.Postgres()
+	require.NoError(t, postgresDocker.Ready())
+
+	postgresQuery := gorm.NewTestQueryWithSchema(postgresDocker, schema)
+	testSchema := GetTestSchema(postgresQuery, map[database.Driver]*gorm.TestQuery{
+		database.DriverPostgres: postgresQuery,
+	})
+
+	assert.NoError(t, testSchema.Create(table, func(table contractsschema.Blueprint) {
+		table.String("name")
+	}))
+	tables, err := testSchema.GetTables()
+
+	assert.NoError(t, err)
+	assert.Len(t, tables, 1)
+	assert.Equal(t, "table", tables[0].Name)
+	assert.Equal(t, schema, tables[0].Schema)
+	assert.True(t, testSchema.HasTable(fmt.Sprintf("%s.%s", schema, table)))
+	assert.True(t, testSchema.HasTable(table))
+}
+
+func TestSqlserverSchema(t *testing.T) {
+	if env.IsWindows() {
+		t.Skip("Skip test that using Docker")
+	}
+
+	schema := "goravel"
+	table := "table"
+	sqlserverDocker := docker.Sqlserver()
+	require.NoError(t, sqlserverDocker.Ready())
+
+	sqlserverQuery := gorm.NewTestQueryWithSchema(sqlserverDocker, schema)
+	testSchema := GetTestSchema(sqlserverQuery, map[database.Driver]*gorm.TestQuery{
+		database.DriverSqlserver: sqlserverQuery,
+	})
+
+	assert.NoError(t, testSchema.Create(fmt.Sprintf("%s.%s", schema, table), func(table contractsschema.Blueprint) {
+		table.String("name")
+	}))
+	tables, err := testSchema.GetTables()
+
+	assert.NoError(t, err)
+	assert.Len(t, tables, 1)
+	assert.Equal(t, "table", tables[0].Name)
+	assert.Equal(t, schema, tables[0].Schema)
+	assert.True(t, testSchema.HasTable(fmt.Sprintf("%s.%s", schema, table)))
 }

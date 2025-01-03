@@ -17,6 +17,8 @@ type Docker interface {
 
 type Database interface {
 	DatabaseDriver
+	// Migrate runs the database migrations.
+	Migrate() error
 	// Seed runs the database seeds.
 	Seed(seeders ...seeder.Seeder) error
 }
@@ -37,8 +39,8 @@ type DatabaseDriver interface {
 	Image(image Image)
 	// Ready checks if the database is ready, the Build method needs to be called first.
 	Ready() error
-	// Stop the database.
-	Stop() error
+	// Shutdown the database.
+	Shutdown() error
 }
 
 type DatabaseConfig struct {

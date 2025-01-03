@@ -3,6 +3,7 @@ package schema
 import (
 	"fmt"
 	"slices"
+	"strings"
 
 	"github.com/goravel/framework/contracts/config"
 	contractsdatabase "github.com/goravel/framework/contracts/database"
@@ -44,7 +45,7 @@ func NewSchema(config config.Config, log log.Log, orm contractsorm.Orm, migratio
 
 	switch driver {
 	case contractsdatabase.DriverPostgres:
-		schema = config.GetString(fmt.Sprintf("database.connections.%s.search_path", orm.Name()), "public")
+		schema = config.GetString(fmt.Sprintf("database.connections.%s.schema", orm.Name()), "public")
 
 		postgresGrammar := grammars.NewPostgres(prefix)
 		driverSchema = NewPostgresSchema(postgresGrammar, orm, schema, prefix)
@@ -217,6 +218,13 @@ func (r *Schema) HasIndex(table, index string) bool {
 }
 
 func (r *Schema) HasTable(name string) bool {
+	var schema string
+	if strings.Contains(name, ".") {
+		lastDotIndex := strings.LastIndex(name, ".")
+		schema = name[:lastDotIndex]
+		name = name[lastDotIndex+1:]
+	}
+
 	tableName := r.prefix + name
 
 	tables, err := r.GetTables()
@@ -227,7 +235,9 @@ func (r *Schema) HasTable(name string) bool {
 
 	for _, table := range tables {
 		if table.Name == tableName {
-			return true
+			if schema == "" || schema == table.Schema {
+				return true
+			}
 		}
 	}
 

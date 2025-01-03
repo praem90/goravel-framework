@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 	_ "gorm.io/driver/postgres"
+	gormio "gorm.io/gorm"
 
 	"github.com/goravel/framework/contracts/database"
 	contractsorm "github.com/goravel/framework/contracts/database/orm"
@@ -54,7 +55,7 @@ func (s *QueryTestSuite) SetupTest() {}
 
 func (s *QueryTestSuite) TearDownSuite() {
 	if s.queries[database.DriverSqlite] != nil {
-		s.NoError(s.queries[database.DriverSqlite].Docker().Stop())
+		s.NoError(s.queries[database.DriverSqlite].Docker().Shutdown())
 	}
 }
 
@@ -1440,6 +1441,50 @@ func (s *QueryTestSuite) TestEvent_ForceDeleted() {
 		var user1 User
 		s.Nil(query.Query().Find(&user1, user.ID))
 		s.True(user1.ID == 0)
+	}
+}
+
+func (s *QueryTestSuite) TestEvent_Restored() {
+	for _, query := range s.queries {
+		user := User{Name: "event_restored_name", Avatar: "event_restored_avatar"}
+		s.Nil(query.Query().Create(&user))
+
+		res, err := query.Query().Delete(&user)
+		s.NoError(err)
+		s.Equal(int64(1), res.RowsAffected)
+
+		res, err = query.Query().WithTrashed().Restore(&user)
+		s.NoError(err)
+		s.Equal(int64(1), res.RowsAffected)
+		s.Equal("event_restored_name1", user.Name)
+
+		var user1 User
+		s.Nil(query.Query().Find(&user1, user.ID))
+		s.True(user1.ID > 0)
+		s.Equal("event_restored_name", user1.Name)
+		s.Equal("event_restored_avatar", user1.Avatar)
+	}
+}
+
+func (s *QueryTestSuite) TestEvent_Restoring() {
+	for _, query := range s.queries {
+		user := User{Name: "event_restoring_name", Avatar: "event_restoring_avatar"}
+		s.Nil(query.Query().Create(&user))
+
+		res, err := query.Query().Delete(&user)
+		s.NoError(err)
+		s.Equal(int64(1), res.RowsAffected)
+
+		res, err = query.Query().WithTrashed().Restore(&user)
+		s.NoError(err)
+		s.Equal(int64(1), res.RowsAffected)
+		s.Equal("event_restoring_name1", user.Name)
+
+		var user1 User
+		s.Nil(query.Query().Find(&user1, user.ID))
+		s.True(user1.ID > 0)
+		s.Equal("event_restoring_name", user1.Name)
+		s.Equal("event_restoring_avatar", user1.Avatar)
 	}
 }
 
@@ -3002,6 +3047,52 @@ func (s *QueryTestSuite) TestSoftDelete() {
 	}
 }
 
+func (s *QueryTestSuite) TestRestore() {
+	for driver, query := range s.queries {
+		s.Run(driver.String(), func() {
+			users := []User{
+				{Name: "restore_user1", Avatar: "restore_avatar"},
+				{Name: "restore_user2", Avatar: "restore_avatar"},
+				{Name: "restore_user3", Avatar: "restore_avatar"},
+				{Name: "restore_user4", Avatar: "restore_avatar"},
+			}
+			s.NoError(query.Query().Create(&users))
+			s.True(users[0].ID > 0)
+			s.True(users[1].ID > 0)
+			s.True(users[2].ID > 0)
+			s.True(users[3].ID > 0)
+
+			res, err := query.Query().Where("avatar", "restore_avatar").Delete(&User{})
+			s.Equal(int64(4), res.RowsAffected)
+			s.NoError(err)
+
+			res, err = query.Query().Where("name = ?", "restore_user1").Restore(&User{})
+			s.Equal(int64(0), res.RowsAffected)
+			s.NoError(err)
+
+			res, err = query.Query().WithTrashed().Where("name = ?", "restore_user1").Restore(&User{})
+			s.Equal(int64(1), res.RowsAffected)
+			s.NoError(err)
+
+			res, err = query.Query().Model(&User{}).WithTrashed().Where("name = ?", "restore_user2").Restore()
+			s.Equal(int64(1), res.RowsAffected)
+			s.NoError(err)
+
+			res, err = query.Query().Model(users[2]).WithTrashed().Restore()
+			s.Equal(int64(1), res.RowsAffected)
+			s.NoError(err)
+
+			res, err = query.Query().WithTrashed().Restore(&users[3])
+			s.Equal(int64(1), res.RowsAffected)
+			s.NoError(err)
+
+			var count int64
+			s.NoError(query.Query().Model(&User{}).Where("avatar", "restore_avatar").Count(&count))
+			s.Equal(int64(4), count)
+		})
+	}
+}
+
 func (s *QueryTestSuite) TestSum() {
 	for driver, query := range s.queries {
 		s.Run(driver.String(), func() {
@@ -3638,7 +3729,7 @@ func TestCustomConnection(t *testing.T) {
 	assert.NotNil(t, query.Create(&person))
 	assert.True(t, person.ID == 0)
 
-	assert.NoError(t, sqliteDocker.Stop())
+	assert.NoError(t, sqliteDocker.Shutdown())
 }
 
 func TestFilterFindConditions(t *testing.T) {
@@ -3676,6 +3767,22 @@ func TestFilterFindConditions(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestGetDeletedAtColumnName(t *testing.T) {
+	type Test1 struct {
+		Deleted gormio.DeletedAt
+	}
+
+	assert.Equal(t, "Deleted", getDeletedAtColumn(Test1{}))
+	assert.Equal(t, "Deleted", getDeletedAtColumn(&Test1{}))
+
+	type Test2 struct {
+		Test1
+	}
+
+	assert.Equal(t, "Deleted", getDeletedAtColumn(Test2{}))
+	assert.Equal(t, "Deleted", getDeletedAtColumn(&Test2{}))
 }
 
 func TestGetModelConnection(t *testing.T) {
@@ -3801,8 +3908,8 @@ func TestReadWriteSeparate(t *testing.T) {
 		})
 	}
 
-	assert.NoError(t, dbs[database.DriverSqlite]["read"].Docker().Stop())
-	assert.NoError(t, dbs[database.DriverSqlite]["write"].Docker().Stop())
+	assert.NoError(t, dbs[database.DriverSqlite]["read"].Docker().Shutdown())
+	assert.NoError(t, dbs[database.DriverSqlite]["write"].Docker().Shutdown())
 }
 
 func TestTablePrefixAndSingular(t *testing.T) {
@@ -3827,8 +3934,48 @@ func TestTablePrefixAndSingular(t *testing.T) {
 	}
 
 	if dbs[database.DriverSqlite] != nil {
-		assert.NoError(t, dbs[database.DriverSqlite].Docker().Stop())
+		assert.NoError(t, dbs[database.DriverSqlite].Docker().Shutdown())
 	}
+}
+
+func TestPostgresSchema(t *testing.T) {
+	if env.IsWindows() {
+		t.Skip("Skip test that using Docker")
+	}
+
+	postgresDocker := supportdocker.Postgres()
+	require.NoError(t, postgresDocker.Ready())
+
+	testQuery := NewTestQueryWithSchema(postgresDocker, "goravel")
+	testQuery.CreateTable(TestTableUsers)
+
+	user := User{Name: "first_user"}
+	assert.Nil(t, testQuery.Query().Create(&user))
+	assert.True(t, user.ID > 0)
+
+	var user1 User
+	assert.Nil(t, testQuery.Query().Where("name", "first_user").First(&user1))
+	assert.True(t, user1.ID > 0)
+}
+
+func TestSqlserverSchema(t *testing.T) {
+	if env.IsWindows() {
+		t.Skip("Skip test that using Docker")
+	}
+
+	sqlserverDocker := supportdocker.Sqlserver()
+	require.NoError(t, sqlserverDocker.Ready())
+
+	testQuery := NewTestQueryWithSchema(sqlserverDocker, "goravel")
+	testQuery.CreateTable(TestTableSchema)
+
+	schema := Schema{Name: "first_schema"}
+	assert.Nil(t, testQuery.Query().Create(&schema))
+	assert.True(t, schema.ID > 0)
+
+	var schema1 Schema
+	assert.Nil(t, testQuery.Query().Where("name", "first_schema").First(&schema1))
+	assert.True(t, schema1.ID > 0)
 }
 
 func paginator(page string, limit string) func(methods contractsorm.Query) contractsorm.Query {

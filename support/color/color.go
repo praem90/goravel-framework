@@ -3,6 +3,7 @@ package color
 import (
 	"bytes"
 	"io"
+	"os"
 
 	"github.com/pterm/pterm"
 
@@ -38,7 +39,14 @@ const (
 )
 
 var (
-	info    = pterm.Info
+	info = pterm.PrefixPrinter{
+		MessageStyle: &pterm.ThemeDefault.DefaultText,
+		Prefix: pterm.Prefix{
+			Style: &pterm.Style{pterm.FgBlack, pterm.BgLightWhite},
+			Text:  " INFO  ",
+		},
+		Writer: os.Stdout,
+	}
 	warning = pterm.Warning
 	err     = pterm.Error
 	debug   = pterm.Debug
@@ -175,6 +183,11 @@ func Warningln(a ...any) { warning.Println(a...) }
 // CaptureOutput simulates capturing of os.stdout with a buffer and returns what was written to the screen
 func CaptureOutput(f func(w io.Writer)) string {
 	var outBuf bytes.Buffer
+	info.Writer = &outBuf
+	warning.Writer = &outBuf
+	err.Writer = &outBuf
+	debug.Writer = &outBuf
+	success.Writer = &outBuf
 	pterm.SetDefaultOutput(&outBuf)
 	f(&outBuf)
 

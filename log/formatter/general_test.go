@@ -71,10 +71,10 @@ func (s *GeneralTestSuite) TestFormat() {
 			assert: func() {
 				formatLog, err := general.Format(s.entry)
 				s.Nil(err)
-				s.Contains(string(formatLog), "code: \"200\"")
-				s.Contains(string(formatLog), "domain: \"example.com\"")
-				s.Contains(string(formatLog), "owner: \"owner\"")
-				s.Contains(string(formatLog), "user: \"user1\"")
+				s.Contains(string(formatLog), "[Code] 200")
+				s.Contains(string(formatLog), "[Domain] example.com")
+				s.Contains(string(formatLog), "[Owner] owner")
+				s.Contains(string(formatLog), "[User] user1")
 			},
 		},
 	}
@@ -121,29 +121,6 @@ func (s *GeneralTestSuite) TestFormatData() {
 			},
 		},
 		{
-			name: "Invalid data type",
-			setup: func() {
-				data = logrus.Fields{
-					"root": map[string]any{
-						"code":     "123",
-						"context":  "sample",
-						"domain":   "example.com",
-						"hint":     make(chan int), // Invalid data type that will cause an error during value extraction
-						"owner":    "owner",
-						"request":  map[string]any{"method": "GET", "uri": "http://localhost"},
-						"response": map[string]any{"status": 200},
-						"tags":     []string{"tag1", "tag2"},
-						"user":     "user1",
-					},
-				}
-			},
-			assert: func() {
-				formattedData, err := general.formatData(data)
-				s.NotNil(err)
-				s.Empty(formattedData)
-			},
-		},
-		{
 			name: "Data is not empty",
 			setup: func() {
 				data = logrus.Fields{
@@ -158,10 +135,10 @@ func (s *GeneralTestSuite) TestFormatData() {
 			assert: func() {
 				formattedData, err := general.formatData(data)
 				s.Nil(err)
-				s.Contains(formattedData, "code: \"200\"")
-				s.Contains(formattedData, "domain: \"example.com\"")
-				s.Contains(formattedData, "owner: \"owner\"")
-				s.Contains(formattedData, "user: \"user1\"")
+				s.Contains(formattedData, "[Code] 200")
+				s.Contains(formattedData, "[Domain] example.com")
+				s.Contains(formattedData, "[Owner] owner")
+				s.Contains(formattedData, "[User] user1")
 			},
 		},
 	}
@@ -190,7 +167,7 @@ func (s *GeneralTestSuite) TestFormatStackTraces() {
 			assert: func() {
 				traces, err := general.formatStackTraces(stackTraces)
 				s.Nil(err)
-				s.Equal("trace:\n", traces)
+				s.Equal("[Trace]\n", traces)
 			},
 		},
 		{
@@ -223,7 +200,7 @@ func (s *GeneralTestSuite) TestFormatStackTraces() {
 					"/dummy/examples/logging/example.go:29 [main.(*Request).Validate]",
 					"/dummy/examples/logging/example.go:28 [main.(*Request).Validate]",
 				}
-				formattedStackTraces := "trace:\n\t" + strings.Join(stackTraces, "\n\t") + "\n"
+				formattedStackTraces := "[Trace]\n" + strings.Join(stackTraces, "\n") + "\n"
 
 				s.Equal(formattedStackTraces, traces)
 			},
@@ -247,47 +224,47 @@ func TestFormatStackTrace(t *testing.T) {
 		{
 			name:     "Valid stack trace with file and method",
 			input:    "main.functionName:/path/to/file.go:42",
-			expected: "\t/path/to/file.go:42 [main.functionName]\n",
+			expected: "/path/to/file.go:42 [main.functionName]\n",
 		},
 		{
 			name:     "Valid stack trace without method",
 			input:    "/path/to/file.go:42",
-			expected: "\t/path/to/file.go:42\n",
+			expected: "/path/to/file.go:42\n",
 		},
 		{
 			name:     "No colons in stack trace",
 			input:    "invalidstacktrace",
-			expected: "\tinvalidstacktrace\n",
+			expected: "invalidstacktrace\n",
 		},
 		{
 			name:     "Single colon in stack trace",
 			input:    "file.go:42",
-			expected: "\tfile.go:42\n",
+			expected: "file.go:42\n",
 		},
 		{
 			name:     "Edge case: Empty string",
 			input:    "",
-			expected: "\t\n",
+			expected: "\n",
 		},
 		{
 			name:     "Edge case: Colon at the end",
 			input:    "file.go:",
-			expected: "\tfile.go:\n",
+			expected: "file.go:\n",
 		},
 		{
 			name:     "Edge case: Colon at the beginning",
 			input:    ":file.go",
-			expected: "\t:file.go\n",
+			expected: ":file.go\n",
 		},
 		{
 			name:     "Edge case: Multiple colons with no method",
 			input:    "/path/to/file.go:100:200",
-			expected: "\t100:200 [/path/to/file.go]\n",
+			expected: "100:200 [/path/to/file.go]\n",
 		},
 		{
 			name:     "Valid stack trace with nested method and line",
 			input:    "pkg.subpkg.functionName:/path/to/file.go:55",
-			expected: "\t/path/to/file.go:55 [pkg.subpkg.functionName]\n",
+			expected: "/path/to/file.go:55 [pkg.subpkg.functionName]\n",
 		},
 	}
 

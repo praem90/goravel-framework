@@ -11,21 +11,24 @@ import (
 )
 
 type Application struct {
-	instance  *cli.App
-	isArtisan bool
+	instance   *cli.App
+	useArtisan bool
 }
 
-func NewApplication(name, usage, usageText, version string, artisan ...bool) console.Artisan {
+// NewApplication Create a new Artisan application.
+// Will add artisan flag to the command if useArtisan is true.
+func NewApplication(name, usage, usageText, version string, useArtisan bool) console.Artisan {
 	instance := cli.NewApp()
 	instance.Name = name
 	instance.Usage = usage
 	instance.UsageText = usageText
 	instance.Version = version
-	isArtisan := len(artisan) > 0 && artisan[0]
+	instance.CommandNotFound = commandNotFound
+	instance.OnUsageError = onUsageError
 
 	return &Application{
-		instance:  instance,
-		isArtisan: isArtisan,
+		instance:   instance,
+		useArtisan: useArtisan,
 	}
 }
 
@@ -38,8 +41,10 @@ func (r *Application) Register(commands []console.Command) {
 			Action: func(ctx *cli.Context) error {
 				return item.Handle(NewCliContext(ctx))
 			},
-			Category: item.Extend().Category,
-			Flags:    flagsToCliFlags(item.Extend().Flags),
+			Category:     item.Extend().Category,
+			ArgsUsage:    item.Extend().ArgsUsage,
+			Flags:        flagsToCliFlags(item.Extend().Flags),
+			OnUsageError: onUsageError,
 		}
 		r.instance.Commands = append(r.instance.Commands, &cliCommand)
 	}
@@ -53,7 +58,7 @@ func (r *Application) Call(command string) error {
 
 	commands := []string{os.Args[0]}
 
-	if r.isArtisan {
+	if r.useArtisan {
 		commands = append(commands, "artisan")
 	}
 
@@ -68,7 +73,7 @@ func (r *Application) CallAndExit(command string) {
 
 	commands := []string{os.Args[0]}
 
-	if r.isArtisan {
+	if r.useArtisan {
 		commands = append(commands, "artisan")
 	}
 
@@ -78,7 +83,7 @@ func (r *Application) CallAndExit(command string) {
 // Run a command. Args come from os.Args.
 func (r *Application) Run(args []string, exitIfArtisan bool) error {
 	artisanIndex := -1
-	if r.isArtisan {
+	if r.useArtisan {
 		for i, arg := range args {
 			if arg == "artisan" {
 				artisanIndex = i
@@ -105,7 +110,7 @@ func (r *Application) Run(args []string, exitIfArtisan bool) error {
 		}
 
 		if exitIfArtisan {
-			os.Exit(1)
+			os.Exit(0)
 		}
 	}
 
