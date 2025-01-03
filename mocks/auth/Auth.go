@@ -20,7 +20,7 @@ func (_m *Auth) EXPECT() *Auth_Expecter {
 	return &Auth_Expecter{mock: &_m.Mock}
 }
 
-// Check provides a mock function with given fields:
+// Check provides a mock function with no fields
 func (_m *Auth) Check() bool {
 	ret := _m.Called()
 
@@ -65,7 +65,7 @@ func (_c *Auth_Check_Call) RunAndReturn(run func() bool) *Auth_Check_Call {
 	return _c
 }
 
-// GetDefaultDriver provides a mock function with given fields:
+// GetDefaultDriver provides a mock function with no fields
 func (_m *Auth) GetDefaultDriver() auth.Guard {
 	ret := _m.Called()
 
@@ -160,7 +160,7 @@ func (_c *Auth_Guard_Call) RunAndReturn(run func(string) auth.Guard) *Auth_Guard
 	return _c
 }
 
-// Id provides a mock function with given fields:
+// Id provides a mock function with no fields
 func (_m *Auth) Id() (string, error) {
 	ret := _m.Called()
 
@@ -215,20 +215,20 @@ func (_c *Auth_Id_Call) RunAndReturn(run func() (string, error)) *Auth_Id_Call {
 	return _c
 }
 
-// User provides a mock function with given fields:
-func (_m *Auth) User() *any {
+// User provides a mock function with no fields
+func (_m *Auth) User() *interface{} {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for User")
 	}
 
-	var r0 *any
-	if rf, ok := ret.Get(0).(func() *any); ok {
+	var r0 *interface{}
+	if rf, ok := ret.Get(0).(func() *interface{}); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*any)
+			r0 = ret.Get(0).(*interface{})
 		}
 	}
 
@@ -252,12 +252,12 @@ func (_c *Auth_User_Call) Run(run func()) *Auth_User_Call {
 	return _c
 }
 
-func (_c *Auth_User_Call) Return(_a0 *any) *Auth_User_Call {
+func (_c *Auth_User_Call) Return(_a0 *interface{}) *Auth_User_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Auth_User_Call) RunAndReturn(run func() *any) *Auth_User_Call {
+func (_c *Auth_User_Call) RunAndReturn(run func() *interface{}) *Auth_User_Call {
 	_c.Call.Return(run)
 	return _c
 }

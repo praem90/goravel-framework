@@ -69,7 +69,7 @@ func (_c *Factory_Extend_Call) RunAndReturn(run func(string, auth.AuthGuardFunc)
 	return _c
 }
 
-// GetDefaultDriver provides a mock function with given fields:
+// GetDefaultDriver provides a mock function with no fields
 func (_m *Factory) GetDefaultDriver() auth.Guard {
 	ret := _m.Called()
 

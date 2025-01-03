@@ -20,7 +20,7 @@ func (_m *Guard) EXPECT() *Guard_Expecter {
 	return &Guard_Expecter{mock: &_m.Mock}
 }
 
-// Check provides a mock function with given fields:
+// Check provides a mock function with no fields
 func (_m *Guard) Check() bool {
 	ret := _m.Called()
 
@@ -65,7 +65,7 @@ func (_c *Guard_Check_Call) RunAndReturn(run func() bool) *Guard_Check_Call {
 	return _c
 }
 
-// Guest provides a mock function with given fields:
+// Guest provides a mock function with no fields
 func (_m *Guard) Guest() bool {
 	ret := _m.Called()
 
@@ -110,7 +110,7 @@ func (_c *Guard_Guest_Call) RunAndReturn(run func() bool) *Guard_Guest_Call {
 	return _c
 }
 
-// HasUser provides a mock function with given fields:
+// HasUser provides a mock function with no fields
 func (_m *Guard) HasUser() bool {
 	ret := _m.Called()
 
@@ -155,7 +155,7 @@ func (_c *Guard_HasUser_Call) RunAndReturn(run func() bool) *Guard_HasUser_Call 
 	return _c
 }
 
-// Id provides a mock function with given fields:
+// Id provides a mock function with no fields
 func (_m *Guard) Id() (string, error) {
 	ret := _m.Called()
 
@@ -211,7 +211,7 @@ func (_c *Guard_Id_Call) RunAndReturn(run func() (string, error)) *Guard_Id_Call
 }
 
 // SetUser provides a mock function with given fields: _a0
-func (_m *Guard) SetUser(_a0 any) auth.Guard {
+func (_m *Guard) SetUser(_a0 interface{}) auth.Guard {
 	ret := _m.Called(_a0)
 
 	if len(ret) == 0 {
@@ -219,7 +219,7 @@ func (_m *Guard) SetUser(_a0 any) auth.Guard {
 	}
 
 	var r0 auth.Guard
-	if rf, ok := ret.Get(0).(func(any) auth.Guard); ok {
+	if rf, ok := ret.Get(0).(func(interface{}) auth.Guard); ok {
 		r0 = rf(_a0)
 	} else {
 		if ret.Get(0) != nil {
@@ -236,14 +236,14 @@ type Guard_SetUser_Call struct {
 }
 
 // SetUser is a helper method to define mock.On call
-//   - _a0 any
+//   - _a0 interface{}
 func (_e *Guard_Expecter) SetUser(_a0 interface{}) *Guard_SetUser_Call {
 	return &Guard_SetUser_Call{Call: _e.mock.On("SetUser", _a0)}
 }
 
-func (_c *Guard_SetUser_Call) Run(run func(_a0 any)) *Guard_SetUser_Call {
+func (_c *Guard_SetUser_Call) Run(run func(_a0 interface{})) *Guard_SetUser_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(any))
+		run(args[0].(interface{}))
 	})
 	return _c
 }
@@ -253,25 +253,25 @@ func (_c *Guard_SetUser_Call) Return(_a0 auth.Guard) *Guard_SetUser_Call {
 	return _c
 }
 
-func (_c *Guard_SetUser_Call) RunAndReturn(run func(any) auth.Guard) *Guard_SetUser_Call {
+func (_c *Guard_SetUser_Call) RunAndReturn(run func(interface{}) auth.Guard) *Guard_SetUser_Call {
 	_c.Call.Return(run)
 	return _c
 }
 
-// User provides a mock function with given fields:
-func (_m *Guard) User() *any {
+// User provides a mock function with no fields
+func (_m *Guard) User() *interface{} {
 	ret := _m.Called()
 
 	if len(ret) == 0 {
 		panic("no return value specified for User")
 	}
 
-	var r0 *any
-	if rf, ok := ret.Get(0).(func() *any); ok {
+	var r0 *interface{}
+	if rf, ok := ret.Get(0).(func() *interface{}); ok {
 		r0 = rf()
 	} else {
 		if ret.Get(0) != nil {
-			r0 = ret.Get(0).(*any)
+			r0 = ret.Get(0).(*interface{})
 		}
 	}
 
@@ -295,12 +295,12 @@ func (_c *Guard_User_Call) Run(run func()) *Guard_User_Call {
 	return _c
 }
 
-func (_c *Guard_User_Call) Return(_a0 *any) *Guard_User_Call {
+func (_c *Guard_User_Call) Return(_a0 *interface{}) *Guard_User_Call {
 	_c.Call.Return(_a0)
 	return _c
 }
 
-func (_c *Guard_User_Call) RunAndReturn(run func() *any) *Guard_User_Call {
+func (_c *Guard_User_Call) RunAndReturn(run func() *interface{}) *Guard_User_Call {
 	_c.Call.Return(run)
 	return _c
 }
