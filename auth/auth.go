@@ -50,7 +50,7 @@ func NewAuth(guard string, cache cache.Cache, config config.Config, ctx http.Con
 	}
 }
 
-func (a *Auth) Guard(name string) contractsauth.Auth {
+func (a *Auth) Guard(name string) *Auth {
 	return NewAuth(name, a.cache, a.config, a.ctx, a.orm)
 }
 

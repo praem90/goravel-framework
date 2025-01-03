@@ -15,6 +15,7 @@ type AuthManager struct {
 	app    foundation.Application
 	ctx    http.Context
 	customGuards map[string]contractsauth.AuthGuardFunc
+	defaultGuard contractsauth.Guard
 	guards map[string]contractsauth.Guard
 	providers map[string]contractsauth.UserProvider
 	customProviders map[string]UserProviderFunc
@@ -23,6 +24,10 @@ type AuthManager struct {
 
 // GetDefaultDriver implements auth.Factory.
 func (f AuthManager) GetDefaultDriver() contractsauth.Guard {
+    if f.defaultGuard != nil {
+        return f.defaultGuard
+    }
+
 	config := f.app.MakeConfig()
 
     if config == nil {
@@ -31,11 +36,9 @@ func (f AuthManager) GetDefaultDriver() contractsauth.Guard {
 
 	name := config.GetString("auth.defaults.guard")
 
-	return f.Guard(name)
-}
+    f.defaultGuard = f.Guard(name)
 
-func (f AuthManager) User() *any {
-    return f.GetDefaultDriver().User()
+	return f.defaultGuard
 }
 
 // SetDefaultDriver implements auth.Factory.
@@ -81,6 +84,18 @@ func (f AuthManager) Guard(name string) contractsauth.Guard {
 
 func (f AuthManager) createUserProvider(name string) contractsauth.UserProvider {
     return NewOrmUserProvider(f.app, f.app.MakeConfig())
+}
+
+func (f AuthManager) Check() bool {
+    return f.GetDefaultDriver().Check()
+}
+
+func (f AuthManager) Id() (string, error) {
+    return f.GetDefaultDriver().Id()
+}
+
+func (f AuthManager) User() *any {
+    return f.GetDefaultDriver().User()
 }
 
 func NewAuthManager(app foundation.Application, ctx http.Context) contractsauth.Factory {

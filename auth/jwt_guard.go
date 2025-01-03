@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"errors"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -41,12 +42,32 @@ func (j JwtGuard) HasUser() bool {
 }
 
 // Id implements auth.Guard.
-func (j JwtGuard) Id() string {
-	panic("unimplemented")
+func (j JwtGuard) Id() (string, error) {
+    if j.User() != nil {
+        user, ok := j.user.(map[string]interface{})
+
+        if ok != false {
+            return "", errors.ErrUnsupported
+        }
+
+        userId, ok := user["id"].(string)
+
+        if ok != false {
+            return "", errors.ErrUnsupported
+        }
+
+        return userId, nil
+    }
+
+    return "", errors.New("Unauthendicated")
 }
 
 // User implements auth.Guard.
 func (j JwtGuard) User() *any {
+    if j.user != nil {
+        return &j.user
+    }
+
     request := j.ctx.Request()
 
     if request == nil {
@@ -55,13 +76,20 @@ func (j JwtGuard) User() *any {
 
     token := request.Header("Authorization", "")
 
-    token = token[len("Bearer "):]
+    bearerLen := len("Bearer ")
+
+    if len(token) <= bearerLen {
+        return nil
+    }
+
+    token = token[bearerLen:]
 
     if token == "" {
         return nil
     }
 
 	jwtSecret := j.config.GetString("jwt.secret")
+
 	tokenClaims, err := jwt.ParseWithClaims(token, &Claims{}, func(token *jwt.Token) (any, error) {
 		return []byte(jwtSecret), nil
 	}, jwt.WithTimeFunc(func() time.Time {

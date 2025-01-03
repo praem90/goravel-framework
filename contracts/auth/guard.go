@@ -5,7 +5,7 @@ type Guard interface {
     Guest() bool;
     // TODO: Authendicatable interface has to be implemented
     User() *any;
-    Id() string;
+    Id() (string, error);
     Validate(map[string]string) bool;
     HasUser() bool;
     SetUser(any) Guard;
