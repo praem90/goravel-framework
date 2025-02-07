@@ -2,9 +2,10 @@ package database
 
 import (
 	"context"
+	"fmt"
 
 	contractsconsole "github.com/goravel/framework/contracts/console"
-	contractsmigration "github.com/goravel/framework/contracts/database/migration"
+	"github.com/goravel/framework/contracts/database/driver"
 	"github.com/goravel/framework/contracts/foundation"
 	"github.com/goravel/framework/database/console"
 	consolemigration "github.com/goravel/framework/database/console/migration"
@@ -41,7 +42,7 @@ func (r *ServiceProvider) Register(app foundation.Application) {
 		if err != nil {
 			color.Warningln(errors.OrmInitConnection.Args(connection, err).SetModule(errors.ModuleOrm))
 
-			return nil, nil
+			return orm, nil
 		}
 
 		return orm, nil
@@ -63,7 +64,17 @@ func (r *ServiceProvider) Register(app foundation.Application) {
 			return &databaseschema.Schema{}, nil
 		}
 
-		return databaseschema.NewSchema(config, log, orm, nil), nil
+		driverCallback, exist := config.Get(fmt.Sprintf("database.connections.%s.via", orm.Name())).(func() (driver.Driver, error))
+		if !exist {
+			return nil, errors.OrmDatabaseConfigNotFound
+		}
+
+		driver, err := driverCallback()
+		if err != nil {
+			return nil, err
+		}
+
+		return databaseschema.NewSchema(config, log, orm, driver, nil), nil
 	})
 	app.Singleton(databaseseeder.BindingSeeder, func(app foundation.Application) (any, error) {
 		return databaseseeder.NewSeederFacade(), nil
@@ -82,23 +93,7 @@ func (r *ServiceProvider) registerCommands(app foundation.Application) {
 	seeder := app.MakeSeeder()
 
 	if artisan != nil && config != nil && log != nil && schema != nil && seeder != nil {
-		var migrator contractsmigration.Migrator
-
-		driver := config.GetString("database.migrations.driver")
-		if driver == contractsmigration.MigratorDefault {
-			migrator = migration.NewDefaultMigrator(artisan, schema, config.GetString("database.migrations.table"))
-		} else if driver == contractsmigration.MigratorSql {
-			var err error
-			migrator, err = migration.NewSqlMigrator(config)
-			if err != nil {
-				log.Error(errors.MigrationSqlMigratorInit.Args(err).SetModule(errors.ModuleMigration))
-				return
-			}
-		} else {
-			log.Error(errors.MigrationUnsupportedDriver.Args(driver).SetModule(errors.ModuleMigration))
-			return
-		}
-
+		migrator := migration.NewMigrator(artisan, schema, config.GetString("database.migrations.table"))
 		artisan.Register([]contractsconsole.Command{
 			consolemigration.NewMigrateMakeCommand(migrator),
 			consolemigration.NewMigrateCommand(migrator),

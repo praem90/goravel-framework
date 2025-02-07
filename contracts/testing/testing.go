@@ -1,7 +1,6 @@
 package testing
 
 import (
-	"github.com/goravel/framework/contracts/database"
 	"github.com/goravel/framework/contracts/database/seeder"
 )
 
@@ -15,6 +14,7 @@ type Docker interface {
 	Database(connection ...string) (Database, error)
 }
 
+// TODO Move to contracts/testing/database
 type Database interface {
 	DatabaseDriver
 	// Migrate runs the database migrations.
@@ -32,18 +32,22 @@ type DatabaseDriver interface {
 	// Database returns a new instance with a new database, the Build method needs to be called first.
 	Database(name string) (DatabaseDriver, error)
 	// Driver gets the database driver name.
-	Driver() database.Driver
+	Driver() string
 	// Fresh the database.
 	Fresh() error
 	// Image gets the database image.
 	Image(image Image)
 	// Ready checks if the database is ready, the Build method needs to be called first.
 	Ready() error
+	// Reuse the existing database container.
+	Reuse(containerID string, port int) error
 	// Shutdown the database.
 	Shutdown() error
 }
 
 type DatabaseConfig struct {
+	// TODO: Fill this field
+	Driver      string
 	Host        string
 	Port        int
 	Database    string
@@ -57,4 +61,5 @@ type Image struct {
 	ExposedPorts []string
 	Repository   string
 	Tag          string
+	Args         []string
 }
