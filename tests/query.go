@@ -7,9 +7,11 @@ import (
 
 	"github.com/goravel/framework/contracts/config"
 	"github.com/goravel/framework/contracts/database"
+	contractsdb "github.com/goravel/framework/contracts/database/db"
 	contractsdriver "github.com/goravel/framework/contracts/database/driver"
 	"github.com/goravel/framework/contracts/database/orm"
-	"github.com/goravel/framework/contracts/testing"
+	contractsdocker "github.com/goravel/framework/contracts/testing/docker"
+	databasedb "github.com/goravel/framework/database/db"
 	"github.com/goravel/framework/database/gorm"
 	mocksconfig "github.com/goravel/framework/mocks/config"
 	"github.com/goravel/framework/support/docker"
@@ -23,24 +25,32 @@ import (
 	sqlitecontracts "github.com/goravel/sqlite/contracts"
 	"github.com/goravel/sqlserver"
 	sqlservercontracts "github.com/goravel/sqlserver/contracts"
+	"github.com/jmoiron/sqlx"
 )
 
 type TestQuery struct {
 	config config.Config
+	db     contractsdb.DB
 	driver contractsdriver.Driver
 	query  orm.Query
 }
 
 func NewTestQuery(ctx context.Context, driver contractsdriver.Driver, config config.Config) (*TestQuery, error) {
-	db, gormQuery, err := driver.Gorm()
+	query, gormQuery, err := driver.Gorm()
+	if err != nil {
+		return nil, err
+	}
+
+	db, err := driver.DB()
 	if err != nil {
 		return nil, err
 	}
 
 	testQuery := &TestQuery{
 		config: config,
+		db:     databasedb.NewDB(driver.Config(), sqlx.NewDb(db, driver.Config().Driver)),
 		driver: driver,
-		query:  gorm.NewQuery(ctx, config, driver.Config(), db, gormQuery, utils.NewTestLog(), nil, nil),
+		query:  gorm.NewQuery(ctx, config, driver.Config(), query, gormQuery, utils.NewTestLog(), nil, nil),
 	}
 
 	return testQuery, nil
@@ -51,7 +61,11 @@ func (r *TestQuery) CreateTable(testTables ...TestTable) {
 
 	for table, sql := range newTestTables(driverName, r.Driver().Grammar()).All() {
 		if (len(testTables) == 0 && table != TestTableSchema) || slices.Contains(testTables, table) {
-			if _, err := r.query.Exec(sql()); err != nil {
+			statements, err := sql()
+			if err == nil {
+				_, err = r.query.Exec(statements[0])
+			}
+			if err != nil {
 				panic(fmt.Sprintf("create table %v failed: %v", table, err))
 			}
 		}
@@ -60,6 +74,10 @@ func (r *TestQuery) CreateTable(testTables ...TestTable) {
 
 func (r *TestQuery) Config() config.Config {
 	return r.config
+}
+
+func (r *TestQuery) DB() contractsdb.DB {
+	return r.db
 }
 
 func (r *TestQuery) Driver() contractsdriver.Driver {
@@ -177,9 +195,9 @@ func (r *TestQueryBuilder) SqliteWithReadWrite() map[string]*TestQuery {
 	return map[string]*TestQuery{
 		"write": writeTestQuery,
 		"read":  readTestQuery,
-		"mix": r.mix(sqlite.Name, testing.DatabaseConfig{
+		"mix": r.mix(sqlite.Name, contractsdocker.DatabaseConfig{
 			Database: writeTestQuery.Driver().Config().Database,
-		}, testing.DatabaseConfig{
+		}, contractsdocker.DatabaseConfig{
 			Database: readTestQuery.Driver().Config().Database,
 		}),
 	}
@@ -194,9 +212,9 @@ func (r *TestQueryBuilder) SqlserverWithReadWrite() map[string]*TestQuery {
 	return r.readWriteMix(sqlserver.Name)
 }
 
-func (r *TestQueryBuilder) single(driver string, prefix string, singular bool) (*TestQuery, testing.DatabaseDriver) {
+func (r *TestQueryBuilder) single(driver string, prefix string, singular bool) (*TestQuery, contractsdocker.DatabaseDriver) {
 	var (
-		dockerDriver   testing.DatabaseDriver
+		dockerDriver   contractsdocker.DatabaseDriver
 		databaseDriver contractsdriver.Driver
 
 		connection = driver
@@ -259,7 +277,7 @@ func (r *TestQueryBuilder) readWriteMix(driver string) map[string]*TestQuery {
 	}
 }
 
-func (r *TestQueryBuilder) mix(driver string, writeDatabaseConfig, readDatabaseConfig testing.DatabaseConfig) *TestQuery {
+func (r *TestQueryBuilder) mix(driver string, writeDatabaseConfig, readDatabaseConfig contractsdocker.DatabaseConfig) *TestQuery {
 	var (
 		databaseDriver contractsdriver.Driver
 

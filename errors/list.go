@@ -45,9 +45,11 @@ var (
 	CryptMissingIVKey        = New("decrypt payload error: missing iv key")
 	CryptMissingValueKey     = New("decrypt payload error: missing value key")
 
-	DBForceIsRequiredInProduction = New("application in production use --force to run this command")
-	DBSeederNotFound              = New("not found %s seeder")
-	DBFailToRunSeeder             = New("fail to run seeder: %v")
+	DatabaseConfigNotFound              = New("not found database configuration")
+	DatabaseTableIsRequired             = New("table is required")
+	DatabaseForceIsRequiredInProduction = New("application in production use --force to run this command")
+	DatabaseSeederNotFound              = New("not found %s seeder")
+	DatabaseFailToRunSeeder             = New("fail to run seeder: %v")
 
 	DockerUnknownContainerType           = New("unknown container type")
 	DockerInsufficientDatabaseContainers = New("the number of database container is not enough, expect: %d, got: %d")
@@ -83,7 +85,6 @@ var (
 	MigrationResetFailed     = New("migration reset failed: %v")
 	MigrationRollbackFailed  = New("migration rollback failed: %v")
 
-	OrmDatabaseConfigNotFound      = New("not found database configuration")
 	OrmDriverNotSupported          = New("invalid driver: %s, only support mysql, postgres, sqlite and sqlserver")
 	OrmFailedToGenerateDNS         = New("failed to generate DSN, please check the database configuration")
 	OrmFactoryMissingAttributes    = New("failed to get raw attributes")
@@ -102,10 +103,13 @@ var (
 	OrmRecordNotFound              = New("record not found")
 	OrmDeletedAtColumnNotFound     = New("deleted at column not found")
 
-	QueueDriverNotSupported     = New("unknown queue driver: %s")
-	QueueDuplicateJobSignature  = New("job signature duplicate: %s, the names of Job and Listener cannot be duplicated")
-	QueueEmptyJobSignature      = New("the Signature of job can't be empty")
-	QueueEmptyListenerSignature = New("the Signature of listener can't be empty")
+	QueueDriverNoJobFound      = New("no job found in %s queue")
+	QueueDriverSyncNotNeedRun  = New("queue %s driver sync not need run")
+	QueueDriverNotSupported    = New("unknown queue driver: %s")
+	QueueDriverInvalid         = New("%s doesn't implement contracts/queue/driver")
+	QueueDriverFailedToPop     = New("failed to pop job from %s queue: %v")
+	QueueJobNotFound           = New("job not found: %s")
+	QueueFailedToSaveFailedJob = New("failed to save failed job: %v")
 
 	RouteDefaultDriverNotSet = New("please set default driver")
 	RouteInvalidDriver       = New("init %s route driver fail: route must be implement route.Route or func() (route.Route, error)")

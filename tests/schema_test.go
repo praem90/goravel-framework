@@ -115,13 +115,21 @@ func (s *SchemaSuite) TestColumnChange() {
 				table.String("change_add_default").Default("goravel").Change()
 				table.String("change_remove_default").Change()
 				table.String("change_modify_default").Default("goravel_again").Change()
-				table.String("change_add_comment").Comment("goravel").Change()
+				table.String("change_add_comment").Comment("goravel").After("change_type").Change()
 				table.String("change_remove_comment").Change()
-				table.String("change_modify_comment").Comment("goravel_again").Change()
+				table.String("change_modify_comment").Comment("goravel_again").First().Change()
 			}))
 			columns, err = schema.GetColumns(table)
 			s.Require().Nil(err)
-			for _, column := range columns {
+			for i, column := range columns {
+				if driver == mysql.Name {
+					if i == 0 {
+						s.Equal(column.Name, "change_modify_comment")
+					}
+					if column.Name == "change_type" {
+						s.Equal(columns[i+1].Name, "change_add_comment")
+					}
+				}
 				if column.Name == "change_length" {
 					s.Contains(column.Type, fmt.Sprintf("(%d)", expectedCustomStringLength))
 				}
@@ -1846,6 +1854,53 @@ func (s *SchemaSuite) TestPrimary() {
 			}
 			if driver == sqlserver.Name {
 				s.Require().False(schema.HasIndex(table, "goravel_primaries_name_age_primary"))
+			}
+		})
+	}
+}
+
+func (s *SchemaSuite) TestRenameColumn() {
+	for driver, testQuery := range s.driverToTestQuery {
+		s.Run(driver, func() {
+			schema := newSchema(testQuery, s.driverToTestQuery)
+			table := "rename_column"
+
+			s.NoError(schema.Create(table, func(table contractsschema.Blueprint) {
+				table.String("before")
+			}))
+			s.True(schema.HasColumn(table, "before"))
+
+			s.NoError(schema.Table(table, func(table contractsschema.Blueprint) {
+				table.RenameColumn("before", "after")
+			}))
+			s.False(schema.HasColumn(table, "before"))
+			s.True(schema.HasColumn(table, "after"))
+		})
+	}
+}
+
+func (s *SchemaSuite) TestTableComment() {
+	for driver, testQuery := range s.driverToTestQuery {
+		if driver == sqlite.Name || driver == sqlserver.Name {
+			continue
+		}
+		s.Run(driver, func() {
+			schema := newSchema(testQuery, s.driverToTestQuery)
+			table := "table_with_comment"
+			comment := "It's a table with comment"
+
+			s.NoError(schema.Create(table, func(table contractsschema.Blueprint) {
+				table.ID()
+				table.Comment(comment)
+			}))
+			s.True(schema.HasTable(table))
+
+			tables, err := schema.GetTables()
+			s.NoError(err)
+			for _, t := range tables {
+				if t.Name == table {
+					s.Equal(comment, t.Comment)
+				}
 			}
 		})
 	}

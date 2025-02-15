@@ -27,7 +27,7 @@ func TestShowCommandHelp_HelpPrinterCustom(t *testing.T) {
 			name: "print app help",
 			containsOutput: []string{
 				color.Yellow().Sprint("Usage:"),
-				color.Yellow().Sprint("Options:"),
+				color.Yellow().Sprint("Global options:"),
 				color.Yellow().Sprint("Available commands:"),
 				color.Yellow().Sprint("test"),
 				color.Green().Sprint("test:foo"),
@@ -96,6 +96,20 @@ func TestShowCommandHelp_HelpPrinterCustom(t *testing.T) {
 			call: "test:foo --int not-a-number",
 			containsOutput: []string{
 				color.Red().Sprint("Invalid value 'not-a-number' for option 'int'."),
+			},
+		},
+		{
+			name: "no ansi color",
+			call: "--no-ansi",
+			containsOutput: []string{
+				"test test",
+				`Usage:
+   test
+
+Global options:
+   -h, --help       Show help
+       --no-ansi    Force disable ANSI output
+   -v, --version    Print the version`,
 			},
 		},
 	}

@@ -8,6 +8,24 @@ import (
 
 	"github.com/goravel/framework/contracts/console"
 	"github.com/goravel/framework/contracts/console/command"
+	"github.com/goravel/framework/support/color"
+	"github.com/goravel/framework/support/env"
+)
+
+var (
+	noANSI     bool
+	noANSIFlag = &cli.BoolFlag{
+		Name:               "no-ansi",
+		Destination:        &noANSI,
+		DisableDefaultText: true,
+		Usage:              "Force disable ANSI output",
+	}
+
+	globalFlags = []cli.Flag{
+		noANSIFlag,
+		cli.HelpFlag,
+		cli.VersionFlag,
+	}
 )
 
 type Application struct {
@@ -22,9 +40,11 @@ func NewApplication(name, usage, usageText, version string, useArtisan bool) con
 	instance.Name = name
 	instance.Usage = usage
 	instance.UsageText = usageText
+	instance.HelpName = name + " [global options]"
 	instance.Version = version
 	instance.CommandNotFound = commandNotFound
 	instance.OnUsageError = onUsageError
+	instance.Flags = []cli.Flag{noANSIFlag}
 
 	return &Application{
 		instance:   instance,
@@ -82,6 +102,10 @@ func (r *Application) CallAndExit(command string) {
 
 // Run a command. Args come from os.Args.
 func (r *Application) Run(args []string, exitIfArtisan bool) error {
+	if noANSI || env.IsNoANSI() {
+		color.Disable()
+	}
+
 	artisanIndex := -1
 	if r.useArtisan {
 		for i, arg := range args {
@@ -124,11 +148,12 @@ func flagsToCliFlags(flags []command.Flag) []cli.Flag {
 		case command.FlagTypeBool:
 			flag := flag.(*command.BoolFlag)
 			cliFlags = append(cliFlags, &cli.BoolFlag{
-				Name:     flag.Name,
-				Aliases:  flag.Aliases,
-				Usage:    flag.Usage,
-				Required: flag.Required,
-				Value:    flag.Value,
+				Name:               flag.Name,
+				Aliases:            flag.Aliases,
+				DisableDefaultText: flag.DisableDefaultText,
+				Usage:              flag.Usage,
+				Required:           flag.Required,
+				Value:              flag.Value,
 			})
 		case command.FlagTypeFloat64:
 			flag := flag.(*command.Float64Flag)

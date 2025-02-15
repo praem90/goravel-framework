@@ -5,15 +5,15 @@ import (
 	"database/sql"
 	"sync"
 
+	"github.com/goravel/framework/contracts"
 	"github.com/goravel/framework/contracts/config"
 	"github.com/goravel/framework/contracts/database"
 	contractsorm "github.com/goravel/framework/contracts/database/orm"
+	contractshttp "github.com/goravel/framework/contracts/http"
 	"github.com/goravel/framework/contracts/log"
 	"github.com/goravel/framework/database/factory"
 	"github.com/goravel/framework/database/gorm"
 )
-
-const BindingOrm = "goravel.orm"
 
 type Orm struct {
 	ctx             context.Context
@@ -134,7 +134,7 @@ func (r *Orm) SetQuery(query contractsorm.Query) {
 }
 
 func (r *Orm) Refresh() {
-	r.refresh(BindingOrm)
+	r.refresh(contracts.BindingOrm)
 }
 
 func (r *Orm) Transaction(txFunc func(tx contractsorm.Query) error) error {
@@ -159,6 +159,10 @@ func (r *Orm) Version() string {
 }
 
 func (r *Orm) WithContext(ctx context.Context) contractsorm.Orm {
+	if http, ok := ctx.(contractshttp.Context); ok {
+		ctx = http.Context()
+	}
+
 	for _, query := range r.queries {
 		if queryWithSetContext, ok := query.(contractsorm.QueryWithSetContext); ok {
 			queryWithSetContext.SetContext(ctx)
