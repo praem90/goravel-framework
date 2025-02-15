@@ -8,10 +8,10 @@ import (
 )
 
 type Factory interface {
-    GetDefaultDriver() Guard
-    SetDefaultDriver(string) Factory
-    Extend(string, AuthGuardFunc) Factory
-    Guard(string) Guard
+	GetDefaultDriver() Guard
+	SetDefaultDriver(string) Factory
+	Extend(string, AuthGuardFunc) Factory
+	Guard(string) Guard
 }
 
 type AuthGuardFunc func(string, config.Config, http.Context, UserProvider) Guard
@@ -19,9 +19,9 @@ type AuthGuardFunc func(string, config.Config, http.Context, UserProvider) Guard
 type Auth interface {
 	User() *any
 	Id() (string, error)
-    Guard(guard string) Guard
-    GetDefaultDriver() Guard
-    Check() bool
+	Guard(guard string) Guard
+	GetDefaultDriver() Guard
+	Check() bool
 }
 
 type Payload struct {

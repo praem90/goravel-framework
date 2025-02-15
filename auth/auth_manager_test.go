@@ -27,9 +27,9 @@ func (s *AuthManagerTestSuite) SetupTest() {
 	s.app = &foundationMock.Application{}
 	s.config = &configmock.Config{}
 	s.manager = AuthManager{
-		app:    s.app,
-		ctx:    s.mockContext,
-		guards: map[string]contractsauth.Guard{},
+		app:          s.app,
+		ctx:          s.mockContext,
+		guards:       map[string]contractsauth.Guard{},
 		customGuards: map[string]contractsauth.AuthGuardFunc{},
 	}
 }
@@ -42,7 +42,7 @@ func (s *AuthManagerTestSuite) TestValidExtend() {
 
 	jwtGuard := s.manager.Guard("test")
 
-    s.Assert().NotNil(jwtGuard)
+	s.Assert().NotNil(jwtGuard)
 }
 
 func (s *AuthManagerTestSuite) TestInValidExtend() {

@@ -12,81 +12,81 @@ import (
 )
 
 type JwtGuard struct {
-    name string;
-    ctx http.Context;
-    config config.Config;
-    user any;
-    provider contractsauth.UserProvider;
+	name     string
+	ctx      http.Context
+	config   config.Config
+	user     any
+	provider contractsauth.UserProvider
 }
 
 // setUser implements auth.Guard.
 func (j JwtGuard) SetUser(user any) contractsauth.Guard {
-    j.user = user
+	j.user = user
 
-    return j
+	return j
 }
 
 // Check implements auth.Guard.
 func (j JwtGuard) Check() bool {
-    return j.User() != nil
+	return j.User() != nil
 }
 
 // Guest implements auth.Guard.
 func (j JwtGuard) Guest() bool {
-    return !j.Check()
+	return !j.Check()
 }
 
 // HasUser implements auth.Guard.
 func (j JwtGuard) HasUser() bool {
-    return j.user != nil
+	return j.user != nil
 }
 
 // Id implements auth.Guard.
 func (j JwtGuard) Id() (string, error) {
-    if j.User() != nil {
-        user, ok := j.user.(map[string]interface{})
+	if j.User() != nil {
+		user, ok := j.user.(map[string]interface{})
 
-        if ok != false {
-            return "", errors.ErrUnsupported
-        }
+		if ok != false {
+			return "", errors.ErrUnsupported
+		}
 
-        userId, ok := user["id"].(string)
+		userId, ok := user["id"].(string)
 
-        if ok != false {
-            return "", errors.ErrUnsupported
-        }
+		if ok != false {
+			return "", errors.ErrUnsupported
+		}
 
-        return userId, nil
-    }
+		return userId, nil
+	}
 
-    return "", errors.New("Unauthendicated")
+	return "", errors.New("Unauthendicated")
 }
 
 // User implements auth.Guard.
 func (j JwtGuard) User() *any {
-    if j.user != nil {
-        return &j.user
-    }
+	if j.user != nil {
+		return &j.user
+	}
 
-    request := j.ctx.Request()
+	request := j.ctx.Request()
 
-    if request == nil {
-        return nil
-    }
+	if request == nil {
+		return nil
+	}
 
-    token := request.Header("Authorization", "")
+	token := request.Header("Authorization", "")
 
-    bearerLen := len("Bearer ")
+	bearerLen := len("Bearer ")
 
-    if len(token) <= bearerLen {
-        return nil
-    }
+	if len(token) <= bearerLen {
+		return nil
+	}
 
-    token = token[bearerLen:]
+	token = token[bearerLen:]
 
-    if token == "" {
-        return nil
-    }
+	if token == "" {
+		return nil
+	}
 
 	jwtSecret := j.config.GetString("jwt.secret")
 
@@ -97,7 +97,7 @@ func (j JwtGuard) User() *any {
 	}))
 
 	if err != nil {
-        return nil
+		return nil
 	}
 
 	if tokenClaims == nil || !tokenClaims.Valid {
@@ -110,27 +110,27 @@ func (j JwtGuard) User() *any {
 		return nil
 	}
 
-    j.user, err = j.provider.RetriveById(claims.Key)
+	j.user, err = j.provider.RetriveById(claims.Key)
 
-    if err != nil {
-        return nil
-    }
+	if err != nil {
+		return nil
+	}
 
-    return &j.user
+	return &j.user
 }
 
 // Validate implements auth.Guard.
 func (j JwtGuard) Validate(map[string]string) bool {
-    staticGuard := NewJwtGuard(j.name, j.config, j.ctx, j.provider)
+	staticGuard := NewJwtGuard(j.name, j.config, j.ctx, j.provider)
 
-    return staticGuard.User() != nil
+	return staticGuard.User() != nil
 }
 
 func NewJwtGuard(name string, config config.Config, ctx http.Context, provider contractsauth.UserProvider) contractsauth.Guard {
 	return JwtGuard{
-        name: name,
-        config: config,
-        ctx: ctx,
-        provider: provider,
-    }
+		name:     name,
+		config:   config,
+		ctx:      ctx,
+		provider: provider,
+	}
 }

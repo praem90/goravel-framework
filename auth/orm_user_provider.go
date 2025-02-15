@@ -11,43 +11,43 @@ import (
 )
 
 type OrmUserProvider struct {
-    orm orm.Orm;
-    model any
+	orm   orm.Orm
+	model any
 }
 
 // RetriveByCredentials implements auth.UserProvider.
 func (o OrmUserProvider) RetriveByCredentials(credentials map[string]any) (any, error) {
-    query := o.orm.Query()
+	query := o.orm.Query()
 
-    for key, value := range credentials {
-        query.Where(key, value)
-    }
+	for key, value := range credentials {
+		query.Where(key, value)
+	}
 
-    if err := query.FirstOrFail(o.model); err != nil {
-        return nil, err
-    }
+	if err := query.FirstOrFail(o.model); err != nil {
+		return nil, err
+	}
 
-    return o.model, nil
+	return o.model, nil
 }
 
 // RetriveById implements auth.UserProvider.
 func (o OrmUserProvider) RetriveById(id any) (any, error) {
 	if err := o.orm.Query().FindOrFail(o.model, clause.Eq{Column: clause.PrimaryColumn, Value: id}); err != nil {
-        return nil, err
-    }
+		return nil, err
+	}
 
-    return o.model, nil
+	return o.model, nil
 }
 
 func NewOrmUserProvider(app foundation.Application, config config.Config) contractsauth.UserProvider {
-    model := config.Get(fmt.Sprintf("auth.providers.%s.model", "orm"))
+	model := config.Get(fmt.Sprintf("auth.providers.%s.model", "orm"))
 
-    if model == nil {
-        return nil
-    }
+	if model == nil {
+		return nil
+	}
 
 	return OrmUserProvider{
-        orm: app.MakeOrm(),
-        model: model,
-    }
+		orm:   app.MakeOrm(),
+		model: model,
+	}
 }

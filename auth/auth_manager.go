@@ -12,31 +12,30 @@ import (
 type UserProviderFunc func(foundation.Application, config.Config) contractsauth.UserProvider
 
 type AuthManager struct {
-	app    foundation.Application
-	ctx    http.Context
-	customGuards map[string]contractsauth.AuthGuardFunc
-	defaultGuard contractsauth.Guard
-	guards map[string]contractsauth.Guard
-	providers map[string]contractsauth.UserProvider
+	app             foundation.Application
+	ctx             http.Context
+	customGuards    map[string]contractsauth.AuthGuardFunc
+	defaultGuard    contractsauth.Guard
+	guards          map[string]contractsauth.Guard
+	providers       map[string]contractsauth.UserProvider
 	customProviders map[string]UserProviderFunc
 }
 
-
 // GetDefaultDriver implements auth.Factory.
 func (f AuthManager) GetDefaultDriver() contractsauth.Guard {
-    if f.defaultGuard != nil {
-        return f.defaultGuard
-    }
+	if f.defaultGuard != nil {
+		return f.defaultGuard
+	}
 
 	config := f.app.MakeConfig()
 
-    if config == nil {
-        return nil
-    }
+	if config == nil {
+		return nil
+	}
 
 	name := config.GetString("auth.defaults.guard")
 
-    f.defaultGuard = f.Guard(name)
+	f.defaultGuard = f.Guard(name)
 
 	return f.defaultGuard
 }
@@ -45,9 +44,9 @@ func (f AuthManager) GetDefaultDriver() contractsauth.Guard {
 func (f AuthManager) SetDefaultDriver(name string) contractsauth.Factory {
 	config := f.app.MakeConfig()
 
-    if config != nil {
-        config.Add("auth.defaults.guard", name)
-    }
+	if config != nil {
+		config.Add("auth.defaults.guard", name)
+	}
 
 	return f
 }
@@ -62,47 +61,47 @@ func (f AuthManager) Extend(name string, callback contractsauth.AuthGuardFunc) c
 // Guard implements auth.Factory.
 func (f AuthManager) Guard(name string) contractsauth.Guard {
 	config := f.app.MakeConfig()
-    if config == nil {
-        return nil
-    }
+	if config == nil {
+		return nil
+	}
 
 	driver := config.GetString(fmt.Sprintf("auth.guards.%s.driver", name))
 
 	if guard, exists := f.guards[driver]; exists {
-        return guard
-    }
+		return guard
+	}
 
 	if guardFn, exists := f.customGuards[driver]; exists {
-        provider := config.GetString(fmt.Sprintf("auth.guards.%s.provider", name))
+		provider := config.GetString(fmt.Sprintf("auth.guards.%s.provider", name))
 		f.guards[name] = guardFn(name, config, f.ctx, f.createUserProvider(provider))
 
-        return f.guards[name]
+		return f.guards[name]
 	}
 
 	return nil
 }
 
 func (f AuthManager) createUserProvider(name string) contractsauth.UserProvider {
-    return NewOrmUserProvider(f.app, f.app.MakeConfig())
+	return NewOrmUserProvider(f.app, f.app.MakeConfig())
 }
 
 func (f AuthManager) Check() bool {
-    return f.GetDefaultDriver().Check()
+	return f.GetDefaultDriver().Check()
 }
 
 func (f AuthManager) Id() (string, error) {
-    return f.GetDefaultDriver().Id()
+	return f.GetDefaultDriver().Id()
 }
 
 func (f AuthManager) User() *any {
-    return f.GetDefaultDriver().User()
+	return f.GetDefaultDriver().User()
 }
 
 func NewAuthManager(app foundation.Application, ctx http.Context) contractsauth.Factory {
 	return AuthManager{
-		app:    app,
-		ctx:    ctx,
-		guards: map[string]contractsauth.Guard{},
+		app:          app,
+		ctx:          ctx,
+		guards:       map[string]contractsauth.Guard{},
 		customGuards: map[string]contractsauth.AuthGuardFunc{},
 	}
 }
